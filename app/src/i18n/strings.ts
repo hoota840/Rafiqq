@@ -26,6 +26,7 @@ export const strings: Record<Language, Record<string, string>> = {
       "PLACEHOLDER: relies on your manual reports and your phone's own motion sensors — no real fall detection or emergency dispatch wired up yet. This only exercises the alert → confirm → escalate state machine.",
     triggerAlert: "Trigger test alert",
     imOkay: "I'm okay",
+    callEmergencyButton: "Call Emergency — 999",
     wearableOptionalLabel: "Wearable device connected (optional)",
     wearableOptionalNote:
       "Rafiqq works fully from your manual reports and your phone's own sensors. Connecting a wearable like an Apple Watch or smart ring adds extra vital-sign monitoring, but isn't required.",
@@ -79,6 +80,7 @@ export const strings: Record<Language, Record<string, string>> = {
       "نص مؤقت: يعتمد على تقاريرك اليدوية وحساسات هاتفك — لا يوجد بعد كشف سقوط حقيقي أو تكامل مع جهات الطوارئ. هذا يختبر فقط آلية التنبيه ثم التأكيد ثم التصعيد.",
     triggerAlert: "تجربة تنبيه",
     imOkay: "أنا بخير",
+    callEmergencyButton: "اتصال بالطوارئ — 999",
     wearableOptionalLabel: "جهاز قابل للارتداء متصل (اختياري)",
     wearableOptionalNote:
       "يعمل رفيق بشكل كامل اعتمادًا على تقاريرك اليدوية وحساسات هاتفك. ربط جهاز مثل ساعة Apple Watch أو خاتم ذكي يضيف مراقبة إضافية للعلامات الحيوية، لكنه ليس ضروريًا.",

@@ -23,6 +23,7 @@ import {
   ScrollView,
   Platform,
   Modal,
+  Linking,
   useWindowDimensions,
 } from 'react-native';
 
@@ -59,7 +60,7 @@ const strings = {
     voiceTitle: 'Talk to Rafiqq',
     voicePrompt: 'Tap and speak, in English or Arabic',
     navigationTitle: 'Navigation',
-    navigationPlaceholder: 'Illustrative layout, not to scale - real geodata for the holy sites has not been sourced yet.',
+    navigationPlaceholder: 'Live map data from OpenStreetMap - indoor positioning inside Masjid al-Haram and official site boundaries have not been sourced yet.',
     navigationHint: 'Tap a pin to select a site',
     navigationSiteHaram: 'Masjid al-Haram',
     navigationSiteMina: 'Mina',
@@ -77,6 +78,7 @@ const strings = {
     emergencyNote: 'PLACEHOLDER: no wearable connected and no real emergency dispatch wired up yet.',
     triggerAlert: 'Trigger test alert',
     imOkay: "I'm okay",
+    callEmergencyButton: 'Call Emergency — 999',
     accountTitle: 'Your Account',
     accountPlaceholderNote: 'Signed in against the real backend (email/password + session token) - not persisted across Snack reloads, since this preview keeps no local storage.',
     emailLabel: 'Email',
@@ -100,7 +102,7 @@ const strings = {
     voiceTitle: 'تحدث مع رفيق',
     voicePrompt: 'اضغط وتحدث بالعربية أو الإنجليزية',
     navigationTitle: 'الملاحة',
-    navigationPlaceholder: 'تخطيط توضيحي وغير مطابق للمقياس الحقيقي - لم يتم بعد الحصول على بيانات حقيقية للأماكن المقدسة.',
+    navigationPlaceholder: 'بيانات خريطة حية من OpenStreetMap - تحديد المواقع الداخلي داخل المسجد الحرام والحدود الرسمية للمواقع لم يتم الحصول عليها بعد.',
     navigationHint: 'اضغط على أي دبوس لاختيار الموقع',
     navigationSiteHaram: 'المسجد الحرام',
     navigationSiteMina: 'منى',
@@ -118,6 +120,7 @@ const strings = {
     emergencyNote: 'نص مؤقت: لا يوجد جهاز قابل للارتداء متصل ولا تكامل حقيقي مع الطوارئ بعد.',
     triggerAlert: 'تجربة تنبيه',
     imOkay: 'أنا بخير',
+    callEmergencyButton: 'اتصال بالطوارئ — 999',
     accountTitle: 'حسابك',
     accountPlaceholderNote: 'تسجيل الدخول متصل بخادم حقيقي (بريد إلكتروني/كلمة مرور + رمز جلسة) - لا يُحفظ بعد إعادة تحميل Snack لأن هذه المعاينة لا تحتفظ بتخزين محلي.',
     emailLabel: 'البريد الإلكتروني',
@@ -327,16 +330,26 @@ function VoiceScreen({ t, language }) {
 function NavigationScreen({ t, rtl }) {
   const { contentMaxWidth } = useResponsive();
   const [selectedId, setSelectedId] = useState('haram');
-  // Rough relative layout (west-to-east), not GPS-accurate - zero-dependency
-  // stand-in so this works without any Google Maps API key/billing. (Kept as
-  // the Snack preview's map, since the real app's live Leaflet/WebView map
-  // can't render inside Snack's browser-based preview.)
+  // Real coordinates (approximate), matching the real app's NavigationScreen
+  // (app/src/screens/NavigationScreen.tsx) — same sites, same lat/lng.
   const sites = [
-    { id: 'haram', label: t.navigationSiteHaram, xPct: 18, yPct: 65 },
-    { id: 'mina', label: t.navigationSiteMina, xPct: 48, yPct: 45 },
-    { id: 'arafat', label: t.navigationSiteArafat, xPct: 80, yPct: 28 },
+    { id: 'haram', label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262, xPct: 18, yPct: 65 },
+    { id: 'mina', label: t.navigationSiteMina, lat: 21.4133, lng: 39.8933, xPct: 48, yPct: 45 },
+    { id: 'arafat', label: t.navigationSiteArafat, lat: 21.3549, lng: 39.984, xPct: 80, yPct: 28 },
   ];
-  const selected = sites.find((s) => s.id === selectedId) || null;
+  const selected = sites.find((s) => s.id === selectedId) || sites[0];
+  // Snack's browser preview runs on the web, where a plain <iframe> works —
+  // unlike react-native-webview (native-only, what the real app uses via
+  // LeafletMapView.tsx on an actual phone). Live OpenStreetMap tiles, free,
+  // no API key, showing the real Makkah/Mina/Arafat corridor in Saudi Arabia.
+  // On a phone opened via Snack's Expo Go QR code (not the browser preview),
+  // iframes don't render, so that path keeps the old schematic pin layout.
+  const isWeb = Platform.OS === 'web';
+  const mapUrl =
+    'https://www.openstreetmap.org/export/embed.html?bbox=39.75,21.30,40.05,21.48&layer=mapnik&marker=' +
+    selected.lat +
+    ',' +
+    selected.lng;
 
   return (
     <View>
@@ -348,29 +361,52 @@ function NavigationScreen({ t, rtl }) {
         </View>
       </View>
       <View style={{ height: 320, marginHorizontal: 16, marginBottom: 16, borderRadius: 22, overflow: 'hidden', maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%' }}>
-        <View style={{ flex: 1, backgroundColor: '#EFE7D6' }}>
-          {sites.map((site) => {
-            const active = site.id === selectedId;
-            return (
-              <Pressable
-                key={site.id}
-                onPress={() => setSelectedId(site.id)}
-                style={{ position: 'absolute', left: `${site.xPct}%`, top: `${site.yPct}%`, alignItems: 'center', width: 90, marginLeft: -45, marginTop: -18 }}
-              >
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: active ? colors.primary : colors.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
-                  <Text style={{ fontSize: 16 }}>📍</Text>
-                </View>
-                <Text style={{ marginTop: 4, fontSize: 11, fontWeight: '700', color: active ? colors.primaryDark : colors.textDark, textAlign: 'center' }} numberOfLines={1}>
-                  {site.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {isWeb ? (
+          React.createElement('iframe', {
+            key: mapUrl,
+            src: mapUrl,
+            title: 'Map',
+            loading: 'lazy',
+            style: { border: 0, width: '100%', height: '100%' },
+          })
+        ) : (
+          <View style={{ flex: 1, backgroundColor: '#EFE7D6' }}>
+            {sites.map((site) => {
+              const active = site.id === selectedId;
+              return (
+                <Pressable
+                  key={site.id}
+                  onPress={() => setSelectedId(site.id)}
+                  style={{ position: 'absolute', left: `${site.xPct}%`, top: `${site.yPct}%`, alignItems: 'center', width: 90, marginLeft: -45, marginTop: -18 }}
+                >
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: active ? colors.primary : colors.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
+                    <Text style={{ fontSize: 16 }}>📍</Text>
+                  </View>
+                  <Text style={{ marginTop: 4, fontSize: 11, fontWeight: '700', color: active ? colors.primaryDark : colors.textDark, textAlign: 'center' }} numberOfLines={1}>
+                    {site.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
         <View style={{ position: 'absolute', left: 16, right: 16, bottom: 16, backgroundColor: colors.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
           <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textDark }}>{selected ? selected.label : t.navigationHint}</Text>
         </View>
       </View>
+      {isWeb ? (
+        <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', flexWrap: 'wrap', paddingHorizontal: 16, marginBottom: 16, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%', gap: 8 }}>
+          {sites.map((site) => (
+            <PillButton
+              key={site.id}
+              label={site.label}
+              onPress={() => setSelectedId(site.id)}
+              variant={site.id === selectedId ? 'primary' : 'outline'}
+              rtl={rtl}
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -443,6 +479,12 @@ function HealthScreen({ t, rtl }) {
     setStatus('confirmed_ok');
   }
 
+  // Opens the phone/browser's own dialer pre-filled with 999 (Saudi Arabia's
+  // police/general emergency number) - doesn't place the call automatically.
+  function callEmergency() {
+    Linking.openURL('tel:999');
+  }
+
   return (
     <View style={{ paddingTop: 20 }}>
       <Card style={cardStyle}>
@@ -484,6 +526,7 @@ function HealthScreen({ t, rtl }) {
         <SectionHeader icon="🚨" title={t.emergencyTitle} rtl={rtl} />
         <Text style={{ fontSize: 13, color: '#856404', backgroundColor: '#FFF3CD', padding: 8, borderRadius: 10, marginBottom: 16, textAlign }}>{t.emergencyNote}</Text>
         <Text style={{ fontSize: 15, marginBottom: 16, color: colors.textDark, textAlign }}>Status: {status}</Text>
+        <PillButton label={t.callEmergencyButton} icon="📞" onPress={callEmergency} style={{ marginBottom: 8, backgroundColor: colors.danger }} rtl={rtl} />
         <PillButton label={t.triggerAlert} onPress={triggerAlert} style={{ marginBottom: 8 }} rtl={rtl} />
         <PillButton label={t.imOkay} onPress={confirmOk} variant="secondary" rtl={rtl} />
       </Card>

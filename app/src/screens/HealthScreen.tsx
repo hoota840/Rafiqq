@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Switch, StyleSheet } from "react-native";
+import { View, Text, TextInput, Switch, StyleSheet, Linking } from "react-native";
 import { strings, Language } from "../i18n/strings";
 import { isRTL } from "../i18n/rtl";
 import { useResponsive } from "../hooks/useResponsive";
@@ -47,6 +47,15 @@ export default function HealthScreen({ language }: Props) {
       body: JSON.stringify({ pilgrimId: DEMO_PILGRIM_ID, outcome: "ok" }),
     });
     setStatus("confirmed_ok");
+  }
+
+  // Opens the phone's own dialer pre-filled with 999 (Saudi Arabia's police/
+  // general emergency number) — it does not place the call automatically, the
+  // pilgrim still has to tap call in the OS dialer. Real dispatch/Red Crescent
+  // API integration is still an open blocker (see CLAUDE.md); this is the
+  // direct-dial fallback that works today with no integration needed.
+  function callEmergency() {
+    Linking.openURL("tel:999");
   }
 
   const contentStyle = { maxWidth: contentMaxWidth, alignSelf: "center" as const, width: "100%" as const };
@@ -101,6 +110,13 @@ export default function HealthScreen({ language }: Props) {
         <SectionHeader icon="🚨" title={t.emergencyTitle} rtl={rtl} />
         <Text style={[styles.note, rtl && styles.textRTL]}>{t.emergencyNote}</Text>
         <Text style={[styles.status, rtl && styles.textRTL]}>Status: {status}</Text>
+        <PillButton
+          label={t.callEmergencyButton}
+          icon="📞"
+          onPress={callEmergency}
+          style={[styles.gap, styles.callButton]}
+          rtl={rtl}
+        />
         <PillButton label={t.triggerAlert} onPress={triggerTestAlert} variant="primary" style={styles.gap} rtl={rtl} />
         <PillButton label={t.imOkay} onPress={confirmOk} variant="secondary" rtl={rtl} />
 
@@ -158,6 +174,7 @@ const styles = StyleSheet.create({
   },
   status: { fontSize: 15, marginBottom: spacing.md, color: colors.textDark },
   gap: { marginBottom: spacing.sm },
+  callButton: { backgroundColor: colors.danger },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   wearableRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   wearableLabel: { fontSize: 14, color: colors.textDark, flex: 1, marginRight: spacing.sm },

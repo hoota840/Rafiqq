@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, Text, StyleSheet, ViewStyle } from "react-native";
+import { Pressable, Text, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { colors, radii, spacing, fonts } from "../theme";
 
 type Variant = "primary" | "secondary" | "outline";
@@ -9,7 +9,7 @@ type Props = {
   onPress: () => void;
   variant?: Variant;
   icon?: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   rtl?: boolean;
 };

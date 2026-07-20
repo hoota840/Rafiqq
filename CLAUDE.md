@@ -45,10 +45,20 @@ Built with Claude Code. This is the first version / MVP.
   needs an internet connection to load tiles, which cuts against the offline-first
   requirement noted below — fine for now, not a solution for Hajj-scale connectivity; (2)
   only renders in a real native build (Expo Go on a device/simulator), not in Snack's
-  browser-based web preview, since WebView is a native module — `snack-preview.js` keeps the
-  old percentage-based schematic pin layout for that reason. `SchematicSiteMap.tsx` (the
+  browser-based web preview, since WebView is a native module. `SchematicSiteMap.tsx` (the
   earlier zero-dependency, no-internet-needed version) is kept in the repo unused as a
   candidate for an offline fallback later, not deleted.
+- **Snack web preview map fix:** `snack-preview.js`'s `NavigationScreen` used to fall back to
+  the old percentage-based schematic pin layout unconditionally, since it can't use
+  `react-native-webview`. It now branches on `Platform.OS === 'web'` (true in Snack's browser
+  preview) and renders a raw `React.createElement('iframe', { src:
+  'https://www.openstreetmap.org/export/embed.html?...' })` instead — a plain HTML iframe
+  works fine there because Snack's web preview runs on `react-native-web`/real DOM, unlike
+  WebView which is native-only. Shows real OpenStreetMap tiles of the Makkah/Mina/Arafat
+  corridor with a marker, plus a row of site-select pill buttons underneath (the iframe can't
+  receive click events for custom pins the way the native WebView setup does). Falls back to
+  the old percentage-pin layout when `Platform.OS !== 'web'` (i.e. a phone opened via Snack's
+  Expo Go QR code, where iframes don't render).
 - **Build order:** The voice conversation loop (STT → Claude → TTS, English/Arabic) is
   the shared foundation every other module sits on top of, so it's built first
   mechanically. Navigation, historical guide, and health are then built as parallel
@@ -93,9 +103,15 @@ Built with Claude Code. This is the first version / MVP.
   Hajj. The app needs to be offline-first (cached maps, cached content, queued
   sync) rather than assuming live connectivity — affects navigation and voice-response
   caching design.
-- **Emergency services integration:** The escalation flow needs an actual integration
-  target (e.g. Saudi emergency number/Red Crescent system) before the "auto-escalate" step
-  is real rather than a stub — not yet sourced.
+- **Emergency services integration — partially resolved:** the Health screen now has a
+  direct-dial "Call Emergency — 999" button (`Linking.openURL('tel:999')` in
+  `HealthScreen.tsx` and `snack-preview.js`; 999 is Saudi Arabia's police/general emergency
+  number). This only opens the phone's own dialer pre-filled — the pilgrim still taps call
+  themselves in the OS UI, deliberately not a silent auto-dial, given the real-world risk of
+  a demo/test build accidentally placing a real emergency call. What's still missing: this
+  isn't wired into the alert → confirm → escalate state machine's auto-escalate step (see
+  the escalation model above) — that still needs a real Red Crescent/dispatch API
+  integration with location sharing, not just a bare phone number, before it's real.
 - **Voice stack specifics:** STT/TTS vendor(s) for Arabic + English not yet chosen: needs
   low latency and solid Arabic dialect coverage; still to be decided.
 - ~~**Backend hosting/infra:**~~ **Resolved for v1** — Render free tier, deployed from
@@ -347,6 +363,14 @@ paste-it-yourself step is the fastest path, not a limitation of the code itself.
 version of this exact file was confirmed to compile with "No errors" in Snack; the full
 current version wasn't re-verified live in-session because the automated browser tab hung
 on the paste — that's a tooling constraint, not a known code issue.
+
+**Confirmed again in a later session:** automated browser testing of snack.expo.dev
+consistently fails from this assistant's side — screenshot/zoom calls time out (30s) and
+the Monaco editor never receives typed/clipboard-injected content (clipboard-write is
+denied by browser permissions, and `React.createElement`-driven typing into the editor
+produced zero rendered lines). This looks like a rendering/permissions issue specific to
+Snack's page, not a one-off. Don't keep retrying automated Snack testing in future
+sessions — paste `snack-preview.js` in manually instead and report results back.
 
 ## Status
 
