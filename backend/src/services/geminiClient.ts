@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { config } from "../config";
 
 // Google AI Studio's Gemini API free tier — not Google Cloud/Maps Platform
@@ -30,7 +30,7 @@ export async function getAgentReply(
       // gemini-3.5-flash "thinks" before answering by default, which was
       // eating the whole token budget and truncating replies mid-sentence.
       // MINIMAL keeps this a snappy voice assistant, not a reasoning model.
-      thinkingConfig: { thinkingLevel: "MINIMAL" },
+      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
     },
   });
 
