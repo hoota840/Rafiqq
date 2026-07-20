@@ -75,7 +75,7 @@ const strings = {
     mobilityLabel: 'Needs mobility assistance',
     saveProfile: 'Save health profile',
     emergencyTitle: 'Emergency Escalation',
-    emergencyNote: 'PLACEHOLDER: no wearable connected and no real emergency dispatch wired up yet.',
+    emergencyNote: 'The Call Emergency button places a real call to 999. Automatic fall detection and a formal dispatch integration are not wired up yet - the buttons below only demo the alert to confirm to escalate state machine.',
     triggerAlert: 'Trigger test alert',
     imOkay: "I'm okay",
     callEmergencyButton: 'Call Emergency — 999',
@@ -117,7 +117,7 @@ const strings = {
     mobilityLabel: 'يحتاج مساعدة في التنقل',
     saveProfile: 'حفظ الملف الصحي',
     emergencyTitle: 'التصعيد الطارئ',
-    emergencyNote: 'نص مؤقت: لا يوجد جهاز قابل للارتداء متصل ولا تكامل حقيقي مع الطوارئ بعد.',
+    emergencyNote: 'زر الاتصال بالطوارئ يجري اتصالاً حقيقياً بالرقم 999. الكشف التلقائي للسقوط والتكامل الرسمي مع جهات الطوارئ لم يتم ربطهما بعد - الأزرار أدناه تختبر فقط آلية التنبيه ثم التأكيد ثم التصعيد.',
     triggerAlert: 'تجربة تنبيه',
     imOkay: 'أنا بخير',
     callEmergencyButton: 'اتصال بالطوارئ — 999',
@@ -629,7 +629,7 @@ function AccountScreen({ t, rtl }) {
     <View style={{ paddingTop: 20 }}>
       <Card style={cardStyle}>
         <SectionHeader icon="👤" title={t.accountTitle} rtl={rtl} />
-        <Text style={{ fontSize: 13, color: '#856404', backgroundColor: '#FFF3CD', padding: 8, borderRadius: 10, marginBottom: 16, textAlign }}>{t.accountPlaceholderNote}</Text>
+        <Text style={{ fontSize: 13, color: colors.textMuted, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, padding: 8, borderRadius: 10, marginBottom: 16, textAlign }}>{t.accountPlaceholderNote}</Text>
 
         {!user ? (
           <>

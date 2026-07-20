@@ -227,10 +227,14 @@ export default function AccountScreen({ language }: Props) {
 const styles = StyleSheet.create({
   container: { paddingTop: spacing.lg },
   textRTL: { textAlign: "right", writingDirection: "rtl" },
+  // Neutral, not amber/warning — auth is real now, this is just documenting
+  // the method (email/password), not flagging something missing.
   note: {
     fontSize: 13,
-    color: "#856404",
-    backgroundColor: "#FFF3CD",
+    color: colors.textMuted,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: spacing.sm,
     borderRadius: 10,
     marginBottom: spacing.md,

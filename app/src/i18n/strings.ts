@@ -23,7 +23,7 @@ export const strings: Record<Language, Record<string, string>> = {
     saveProfile: "Save health profile",
     emergencyTitle: "Emergency Escalation",
     emergencyNote:
-      "PLACEHOLDER: relies on your manual reports and your phone's own motion sensors — no real fall detection or emergency dispatch wired up yet. This only exercises the alert → confirm → escalate state machine.",
+      "The Call Emergency button places a real call to 999. Automatic fall detection from your phone's motion sensors, and a formal Red Crescent/dispatch integration, aren't wired up yet — the buttons below only demo the alert → confirm → escalate state machine.",
     triggerAlert: "Trigger test alert",
     imOkay: "I'm okay",
     callEmergencyButton: "Call Emergency — 999",
@@ -77,7 +77,7 @@ export const strings: Record<Language, Record<string, string>> = {
     saveProfile: "حفظ الملف الصحي",
     emergencyTitle: "التصعيد الطارئ",
     emergencyNote:
-      "نص مؤقت: يعتمد على تقاريرك اليدوية وحساسات هاتفك — لا يوجد بعد كشف سقوط حقيقي أو تكامل مع جهات الطوارئ. هذا يختبر فقط آلية التنبيه ثم التأكيد ثم التصعيد.",
+      "زر الاتصال بالطوارئ يجري اتصالاً حقيقياً بالرقم 999. أما الكشف التلقائي للسقوط عبر حساسات الهاتف والتكامل الرسمي مع الهلال الأحمر/جهات الطوارئ فلم يتم ربطه بعد — الأزرار أدناه تختبر فقط آلية التنبيه ثم التأكيد ثم التصعيد.",
     triggerAlert: "تجربة تنبيه",
     imOkay: "أنا بخير",
     callEmergencyButton: "اتصال بالطوارئ — 999",
