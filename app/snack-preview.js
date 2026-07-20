@@ -24,6 +24,7 @@ import {
   Platform,
   Modal,
   Linking,
+  Animated,
   useWindowDimensions,
 } from 'react-native';
 import * as Speech from 'expo-speech';
@@ -416,6 +417,9 @@ function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
   // pins with no guide entry (e.g. Overpass-sourced hospitals/police).
   const [story, setStory] = useState(null);
   const [storyLoading, setStoryLoading] = useState(false);
+  // Drives the story card's entrance animation (fade + slide + scale) - pure
+  // React Native Animated API, no new dependency, no external service.
+  const cardAnim = useRef(new Animated.Value(0)).current;
 
   // Real hospitals/police/Tawafa offices/guidance centres from OpenStreetMap
   // - same backend endpoint the real app uses (backend/src/services/
@@ -447,6 +451,13 @@ function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
       .catch(function () { setStory(null); })
       .finally(function () { setStoryLoading(false); });
   }, [selectedId]);
+
+  useEffect(() => {
+    if (story) {
+      cardAnim.setValue(0);
+      Animated.spring(cardAnim, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }).start();
+    }
+  }, [story]);
 
   function speakStory() {
     if (!story) return;
@@ -557,9 +568,20 @@ function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
           {storyLoading ? (
             <ActivityIndicator color={colors.primary} />
           ) : story ? (
-            <>
-              <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textDark }}>{selected.label}</Text>
+            <Animated.View
+              style={{
+                opacity: cardAnim,
+                transform: [
+                  { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+                  { scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+                ],
+              }}
+            >
+              <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'center', marginBottom: 8 }}>
+                <View style={rtl ? { marginLeft: 8 } : { marginRight: 8 }}>
+                  {selected.id === 'thawr' ? <MountainMark size={30} /> : <MosqueMark size={30} />}
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textDark, flex: 1 }}>{selected.label}</Text>
                 <Pressable onPress={speakStory} hitSlop={8} style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 }}>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primaryDark }}>🔊 {t.listenButton}</Text>
                 </Pressable>
@@ -567,7 +589,7 @@ function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
               <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textDark, textAlign: 'right', writingDirection: 'rtl' }}>{story.ar}</Text>
               <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
               <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textDark }}>{story.en}</Text>
-            </>
+            </Animated.View>
           ) : null}
         </View>
       ) : null}

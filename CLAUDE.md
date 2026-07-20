@@ -324,6 +324,16 @@ Built with Claude Code. This is the first version / MVP.
   attempt. This bilingual-text-plus-TTS card was built instead: free, ships immediately,
   reuses infrastructure that already existed. Real video (sourced or generated) remains a
   candidate for after the deadline, not ruled out permanently.
+- **"Animated" — real in-app motion, not a rendered video file.** When asked for something
+  more dynamic than static text, the distinction mattered: an actual exported video/GIF
+  would've hit the same Veo cost/setup blocker (or needed a browser-recording workaround).
+  Instead, the story card now animates in with React Native's own `Animated` API (already
+  part of core `react-native`, zero new dependency, zero cost) — a spring-driven fade +
+  slide-up + scale-in (`cardAnim`, `Animated.spring`), plus a small site illustration
+  (`MosqueMark` for most sites, `MountainMark` for Jabal Thawr, reusing
+  `components/Illustration.tsx`) that animates in alongside the text. This is genuinely
+  animated UI, not a video file — the right read of "animated" once actual video generation
+  was ruled out on cost/time grounds.
 
 ## Voice in-app commands (decided — Gemini function calling)
 

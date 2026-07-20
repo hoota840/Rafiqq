@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Animated } from "react-native";
 import * as Speech from "expo-speech";
 import { strings, Language } from "../i18n/strings";
 import { isRTL } from "../i18n/rtl";
@@ -8,6 +8,14 @@ import { colors, radii, spacing, fonts, shadow } from "../theme";
 import SectionHeader from "../components/SectionHeader";
 import LeafletMapView, { GeoSite } from "../components/LeafletMapView";
 import { fetchNearbySites, fetchSiteGuide } from "../api/client";
+import { MosqueMark, MountainMark } from "../components/Illustration";
+
+// Which illustration to animate in with the story card — only "thawr" among
+// the navigable hub sites is a mountain (Jabal al-Nour is Guide-only, not a
+// map hub pin), everything else gets the mosque mark.
+function siteIconFor(id: string) {
+  return id === "thawr" ? MountainMark : MosqueMark;
+}
 
 type Props = {
   language: Language;
@@ -43,6 +51,9 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
   // Overpass-sourced hospitals/police stations aren't in STUB_SITES.
   const [story, setStory] = useState<{ en: string; ar: string } | null>(null);
   const [storyLoading, setStoryLoading] = useState(false);
+  // Drives the story card's entrance animation (fade + slide + scale) — pure
+  // React Native Animated API, no new dependency, no external service.
+  const cardAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetchNearbySites()
@@ -65,6 +76,13 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
       .catch(() => setStory(null))
       .finally(() => setStoryLoading(false));
   }, [selectedId]);
+
+  useEffect(() => {
+    if (story) {
+      cardAnim.setValue(0);
+      Animated.spring(cardAnim, { toValue: 1, friction: 7, tension: 60, useNativeDriver: true }).start();
+    }
+  }, [story]);
 
   function speakStory() {
     if (!story) return;
@@ -117,9 +135,20 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
           {storyLoading ? (
             <ActivityIndicator color={colors.primary} />
           ) : story ? (
-            <>
+            <Animated.View
+              style={{
+                opacity: cardAnim,
+                transform: [
+                  { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
+                  { scale: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+                ],
+              }}
+            >
               <View style={[styles.storyHeaderRow, rtl && styles.rowReverse]}>
-                <Text style={styles.storyTitle}>{selected.label}</Text>
+                <View style={[styles.storyIconWrap, rtl ? { marginLeft: spacing.sm } : { marginRight: spacing.sm }]}>
+                  {React.createElement(siteIconFor(selected.id), { size: 30 })}
+                </View>
+                <Text style={[styles.storyTitle, styles.storyTitleFlex]}>{selected.label}</Text>
                 <Pressable onPress={speakStory} hitSlop={8} style={styles.listenButton}>
                   <Text style={styles.listenButtonText}>🔊 {t.listenButton}</Text>
                 </Pressable>
@@ -127,7 +156,7 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
               <Text style={[styles.storyText, styles.textRTL]}>{story.ar}</Text>
               <View style={styles.storyDivider} />
               <Text style={styles.storyText}>{story.en}</Text>
-            </>
+            </Animated.View>
           ) : null}
         </View>
       ) : null}
@@ -174,8 +203,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadow,
   },
-  storyHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  storyHeaderRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.sm },
+  storyIconWrap: { alignItems: "center", justifyContent: "center" },
   storyTitle: { fontSize: 16, fontWeight: "700", fontFamily: fonts.heading, color: colors.textDark },
+  storyTitleFlex: { flex: 1 },
   listenButton: {
     backgroundColor: colors.primaryLight,
     borderRadius: radii.pill,
