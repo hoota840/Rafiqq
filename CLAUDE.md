@@ -90,11 +90,17 @@ Built with Claude Code. This is the first version / MVP.
 
 ## Open questions / blockers (need answers before real implementation of that module)
 
-- **Maps/positioning data:** No source identified yet for floor plans, GPS boundaries, or
-  POIs for the holy sites. GPS is unreliable inside Masjid al-Haram (multi-level, dense,
-  reflective) and degrades in Mina/Arafat from sheer crowd density even outdoors — indoor
-  positioning (BLE/WiFi) or a coarser "zone/gate" fallback needs a decision once data
-  access is known. See `data/maps/README.md`.
+- **Maps/positioning data — partially resolved: outdoor POIs are real now, indoor still
+  isn't.** Checked OpenStreetMap's free Overpass API live before building this: it has real,
+  useful outdoor data for the Hajj corridor — hospitals, police stations, Tawafa
+  establishment headquarters (pilgrim-group offices by nationality/region), pilgrim guidance
+  centres. See "Nearby real-world POIs (decided)" below. Explicitly checked and confirmed
+  **no indoor/level tags exist in OSM for Masjid al-Haram** — that's not a "haven't looked
+  yet" gap, it's a real absence of data. GPS is unreliable inside the mosque (multi-level,
+  dense, reflective) regardless. Indoor positioning (BLE/WiFi beacons — would need a
+  physical infrastructure deployment, not just a data source) or the coarser "which gate did
+  you enter from" self-report fallback (see the Voice in-app commands/original open-question
+  text below) still needs a decision — this remains unbuilt. See `data/maps/README.md`.
 - **Historical/spiritual content source:** No vetted, scholarly-reviewed corpus identified
   yet. This must ground the guide module's answers (RAG) rather than letting the model
   generate religious/historical content freely, given accuracy and sensitivity concerns.
@@ -154,6 +160,37 @@ Built with Claude Code. This is the first version / MVP.
     ├── content/           # vetted Islamic history/significance corpus — currently empty, blocker
     └── translations/      # en/ar strings, extensible to more languages
 ```
+
+## Nearby real-world POIs (decided — free via OpenStreetMap Overpass API)
+
+- **Why:** the map only ever showed 3 hardcoded example pins (Haram/Mina/Arafat). Checked
+  whether real outdoor POI data exists anywhere for free before building anything — it does,
+  in OpenStreetMap, verified live via a direct Overpass API query rather than assumed.
+- **What's included:** hospitals, police stations, Tawafa establishment headquarters
+  (offices that manage pilgrim groups by nationality/region — genuinely useful wayfinding
+  targets, not generic filler), and pilgrim guidance centres, across the Masjid
+  al-Haram/Mina/Muzdalifah/Arafat corridor (same bounding box the map is centered/zoomed on).
+- **Backend:** `backend/src/services/overpassClient.ts` — POSTs an Overpass QL query to the
+  free public `overpass-api.de` endpoint (no API key, no billing — same open-data source as
+  the map tiles themselves), in-memory cached for 24h (this data barely changes), and
+  **fails soft**: if Overpass is slow/down, it serves the last-known cached list or an empty
+  list, never throws — a flaky third-party public service shouldn't break the map's core 3
+  hub pins. Exposed via `GET /api/navigation/sites` (`backend/src/routes/navigation.ts`).
+- **App:** `app/src/screens/NavigationScreen.tsx` fetches this on mount
+  (`fetchNearbySites` in `app/src/api/client.ts`) and merges it with the 3 hub sites before
+  passing everything to `LeafletMapView`. POIs render as small emoji markers
+  (🏥/👮/🏢/ℹ️, via a `category` field and Leaflet `divIcon`) distinct from the default pin
+  used for the 3 main hub sites, so "go here" and "nearby amenity" read differently at a
+  glance. `GeoSite`'s `category` field is optional specifically so the 3 hub sites (no
+  category set) keep the default marker.
+- **Native-only, like the rest of the live map:** this only shows up in `LeafletMapView`
+  (WebView, real device build), not `snack-preview.js`'s map, since Snack's iframe-embedded
+  OSM view only supports a single `marker` URL param — adding many custom pins there would
+  need a different embed approach, not attempted here (Snack's map was already documented
+  as a lesser experience than the real device build, see "Snack web preview map fix" above).
+- **What this does NOT solve:** turn-by-turn routing (`POST /api/navigation/route` is still
+  a stub) and indoor positioning inside Masjid al-Haram (see the Maps/positioning data open
+  question above — confirmed no free data exists for that, not just unsearched).
 
 ## Voice stack (decided — revised, on-device STT/TTS, no ElevenLabs)
 

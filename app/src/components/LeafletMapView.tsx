@@ -3,7 +3,17 @@ import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import { radii } from "../theme";
 
-export type GeoSite = { id: string; label: string; lat: number; lng: number };
+export type GeoSite = {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  // Omitted for the 3 main navigable hub sites (Haram/Mina/Arafat), which
+  // keep Leaflet's default pin. Set for real Overpass-sourced POIs (see
+  // backend/src/services/overpassClient.ts) to render a small emoji marker
+  // instead, visually distinguishing "go here" sites from "nearby amenity".
+  category?: "hospital" | "police" | "tawafa" | "guidance" | "other";
+};
 
 type Props = {
   sites: GeoSite[];
@@ -41,8 +51,20 @@ function buildHtml(sites: GeoSite[], centerLat: number, centerLng: number, zoom:
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 19,
   }).addTo(map);
+  var CATEGORY_ICONS = { hospital: '🏥', police: '👮', tawafa: '🏢', guidance: 'ℹ️', other: '📍' };
   sites.forEach(function (site) {
-    var marker = L.marker([site.lat, site.lng]).addTo(map);
+    var marker;
+    if (site.category && CATEGORY_ICONS[site.category]) {
+      var icon = L.divIcon({
+        html: '<div style="font-size:20px;line-height:24px;text-align:center;">' + CATEGORY_ICONS[site.category] + '</div>',
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      marker = L.marker([site.lat, site.lng], { icon: icon }).addTo(map);
+    } else {
+      marker = L.marker([site.lat, site.lng]).addTo(map);
+    }
     marker.bindPopup(site.label);
     marker.on('click', function () {
       window.ReactNativeWebView.postMessage(JSON.stringify({ id: site.id }));

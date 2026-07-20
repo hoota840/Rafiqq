@@ -23,6 +23,22 @@ export async function fetchSiteGuide(siteId: string) {
   return res.json() as Promise<{ en: string; ar: string } & { error?: string }>;
 }
 
+export type NearbySite = {
+  id: string;
+  name: string;
+  category: "hospital" | "police" | "tawafa" | "guidance" | "other";
+  lat: number;
+  lng: number;
+};
+
+/** Real hospitals/police/Tawafa offices/guidance centres from OpenStreetMap — see backend/src/services/overpassClient.ts. */
+export async function fetchNearbySites() {
+  const res = await fetch(`${API_BASE}/api/navigation/sites`);
+  if (!res.ok) throw new Error(`Nearby sites request failed: ${res.status}`);
+  const data = (await res.json()) as { sites: NearbySite[] };
+  return data.sites;
+}
+
 export async function fetchRoute(from: string, to: string) {
   const res = await fetch(`${API_BASE}/api/navigation/route`, {
     method: "POST",

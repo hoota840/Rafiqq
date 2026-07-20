@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { strings, Language } from "../i18n/strings";
 import { isRTL } from "../i18n/rtl";
@@ -6,6 +6,7 @@ import { useResponsive } from "../hooks/useResponsive";
 import { colors, radii, spacing, fonts, shadow } from "../theme";
 import SectionHeader from "../components/SectionHeader";
 import LeafletMapView, { GeoSite } from "../components/LeafletMapView";
+import { fetchNearbySites } from "../api/client";
 
 type Props = {
   language: Language;
@@ -27,12 +28,25 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
   const t = strings[language];
   const rtl = isRTL(language);
   const { contentMaxWidth } = useResponsive();
+  // Real hospitals/police/Tawafa offices/guidance centres from OpenStreetMap
+  // (see backend/src/services/overpassClient.ts). Fails soft — an empty
+  // array on error just means no extra pins, the 3 hub sites still work.
+  const [nearbySites, setNearbySites] = useState<GeoSite[]>([]);
 
-  const sites: GeoSite[] = [
+  useEffect(() => {
+    fetchNearbySites()
+      .then((sites) =>
+        setNearbySites(sites.map((s) => ({ id: s.id, label: s.name, lat: s.lat, lng: s.lng, category: s.category })))
+      )
+      .catch(() => setNearbySites([]));
+  }, []);
+
+  const hubSites: GeoSite[] = [
     { id: "haram", label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262 },
     { id: "mina", label: t.navigationSiteMina, lat: 21.4133, lng: 39.8933 },
     { id: "arafat", label: t.navigationSiteArafat, lat: 21.3549, lng: 39.984 },
   ];
+  const sites = [...hubSites, ...nearbySites];
   const selected = sites.find((s) => s.id === selectedId) ?? null;
 
   return (
