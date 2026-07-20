@@ -303,6 +303,28 @@ Built with Claude Code. This is the first version / MVP.
   Since Node isn't installed locally (see "Development environment" above), this build is
   meant to be triggered from a GitHub Codespace, not this machine.
 
+## Map site summaries (decided — bilingual story card on selection)
+
+- **What it does:** selecting a site on the map (tap a pin, the pill-button row, or a voice
+  command) now shows a card with the site's summary in **both** English and Arabic at once
+  (not just whichever language the app UI is currently in), plus a 🔊 Listen button that
+  speaks the currently-active-language version aloud via `expo-speech` (the same TTS already
+  used by the Voice module). Implemented in `NavigationScreen.tsx` (`story`/`storyLoading`
+  state, a `useEffect` keyed on `selectedId` that calls the existing `fetchSiteGuide`), and
+  mirrored in `snack-preview.js`.
+- **Reuses existing content and infra — no new backend work.** The bilingual text is exactly
+  what `GET /api/guide/site/:id` (`backend/src/routes/guide.ts`'s `STUB_SITES`) already
+  returns; this just surfaces it from the map, not only from the separate Guide screen. Pins
+  with no guide entry (Overpass-sourced hospitals/police/etc., which aren't in `STUB_SITES`)
+  fail soft — the card just doesn't appear for those, no error shown.
+- **Why not video:** considered and explicitly rejected for now. Checked Gemini/Veo pricing
+  live — video generation has **no free tier at all** (~$0.10–0.40/second), unlike every
+  other API decision in this project so far, and building a video-generation pipeline from
+  scratch on the same day as the Kenz submission deadline was judged too high-risk to
+  attempt. This bilingual-text-plus-TTS card was built instead: free, ships immediately,
+  reuses infrastructure that already existed. Real video (sourced or generated) remains a
+  candidate for after the deadline, not ruled out permanently.
+
 ## Voice in-app commands (decided — Gemini function calling)
 
 - **What it does:** beyond plain Q&A, the voice assistant can now trigger two in-app

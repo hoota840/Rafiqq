@@ -9,6 +9,7 @@ export const strings: Record<Language, Record<string, string>> = {
     navigationPlaceholder:
       "Live map data from OpenStreetMap — indoor positioning inside Masjid al-Haram and official site boundaries haven't been sourced yet (see /data/maps).",
     navigationHint: "Tap a pin to select a site",
+    listenButton: "Listen",
     navigationSiteHaram: "Masjid al-Haram",
     navigationSiteMina: "Mina",
     navigationSiteArafat: "Arafat",
@@ -67,6 +68,7 @@ export const strings: Record<Language, Record<string, string>> = {
     navigationPlaceholder:
       "بيانات خريطة حية من OpenStreetMap — تحديد المواقع الداخلي داخل المسجد الحرام والحدود الرسمية للمواقع لم يتم الحصول عليها بعد (راجع data/maps).",
     navigationHint: "اضغط على أي دبوس لاختيار الموقع",
+    listenButton: "استماع",
     navigationSiteHaram: "المسجد الحرام",
     navigationSiteMina: "منى",
     navigationSiteArafat: "عرفات",

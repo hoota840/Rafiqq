@@ -26,6 +26,7 @@ import {
   Linking,
   useWindowDimensions,
 } from 'react-native';
+import * as Speech from 'expo-speech';
 
 // Snack runs in the cloud and can NOT reach "localhost" on your laptop — that's
 // why Snack said it "cannot reach the backend". Deployed on Render (free tier,
@@ -62,6 +63,7 @@ const strings = {
     navigationTitle: 'Navigation',
     navigationPlaceholder: 'Live map data from OpenStreetMap - indoor positioning inside Masjid al-Haram and official site boundaries have not been sourced yet.',
     navigationHint: 'Tap a pin to select a site',
+    listenButton: 'Listen',
     navigationSiteHaram: 'Masjid al-Haram',
     navigationSiteMina: 'Mina',
     navigationSiteArafat: 'Arafat',
@@ -108,6 +110,7 @@ const strings = {
     navigationTitle: 'الملاحة',
     navigationPlaceholder: 'بيانات خريطة حية من OpenStreetMap - تحديد المواقع الداخلي داخل المسجد الحرام والحدود الرسمية للمواقع لم يتم الحصول عليها بعد.',
     navigationHint: 'اضغط على أي دبوس لاختيار الموقع',
+    listenButton: 'استماع',
     navigationSiteHaram: 'المسجد الحرام',
     navigationSiteMina: 'منى',
     navigationSiteArafat: 'عرفات',
@@ -404,10 +407,15 @@ function buildMapHtml(sites, centerLat, centerLng, zoom) {
 
 // selectedId/onSelectSite are lifted up to App() so a voice command
 // ("take me to Mina") can drive the map too, not just a tap.
-function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
+function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
   const { contentMaxWidth } = useResponsive();
   const isWeb = Platform.OS === 'web';
   const [nearbySites, setNearbySites] = useState([]);
+  // Bilingual summary shown when a site is selected - same guide content
+  // GuideScreen shows, fetched fresh per selection. Fails soft to null for
+  // pins with no guide entry (e.g. Overpass-sourced hospitals/police).
+  const [story, setStory] = useState(null);
+  const [storyLoading, setStoryLoading] = useState(false);
 
   // Real hospitals/police/Tawafa offices/guidance centres from OpenStreetMap
   // - same backend endpoint the real app uses (backend/src/services/
@@ -424,6 +432,26 @@ function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
       })
       .catch(function () { setNearbySites([]); });
   }, []);
+
+  useEffect(() => {
+    Speech.stop();
+    if (!selectedId) {
+      setStory(null);
+      return;
+    }
+    setStoryLoading(true);
+    setStory(null);
+    fetch(API_BASE + '/api/guide/site/' + selectedId)
+      .then(function (res) { return res.json(); })
+      .then(function (data) { setStory(data.error ? null : { en: data.en, ar: data.ar }); })
+      .catch(function () { setStory(null); })
+      .finally(function () { setStoryLoading(false); });
+  }, [selectedId]);
+
+  function speakStory() {
+    if (!story) return;
+    Speech.speak(story[language], { language: language === 'ar' ? 'ar-SA' : 'en-US' });
+  }
 
   // Marker-click messages from the iframe (postMessage), only relevant on web.
   useEffect(() => {
@@ -522,6 +550,25 @@ function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
               rtl={rtl}
             />
           ))}
+        </View>
+      ) : null}
+      {selected && (storyLoading || story) ? (
+        <View style={{ backgroundColor: colors.card, borderRadius: 22, padding: 16, marginHorizontal: 16, marginBottom: 16, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
+          {storyLoading ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : story ? (
+            <>
+              <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textDark }}>{selected.label}</Text>
+                <Pressable onPress={speakStory} hitSlop={8} style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primaryDark }}>🔊 {t.listenButton}</Text>
+                </Pressable>
+              </View>
+              <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textDark, textAlign: 'right', writingDirection: 'rtl' }}>{story.ar}</Text>
+              <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+              <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textDark }}>{story.en}</Text>
+            </>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -832,7 +879,7 @@ export default function App() {
           <VoiceScreen t={t} language={language} onNavigateToSite={navigateToSite} />
         </View>
         <View onLayout={recordOffset('navigation')}>
-          <NavigationScreen t={t} rtl={rtl} selectedId={selectedSiteId} onSelectSite={setSelectedSiteId} />
+          <NavigationScreen t={t} rtl={rtl} language={language} selectedId={selectedSiteId} onSelectSite={setSelectedSiteId} />
         </View>
         <View onLayout={recordOffset('guide')}>
           <GuideScreen t={t} language={language} rtl={rtl} />

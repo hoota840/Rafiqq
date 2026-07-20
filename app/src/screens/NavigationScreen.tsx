@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import * as Speech from "expo-speech";
 import { strings, Language } from "../i18n/strings";
 import { isRTL } from "../i18n/rtl";
 import { useResponsive } from "../hooks/useResponsive";
 import { colors, radii, spacing, fonts, shadow } from "../theme";
 import SectionHeader from "../components/SectionHeader";
 import LeafletMapView, { GeoSite } from "../components/LeafletMapView";
-import { fetchNearbySites } from "../api/client";
+import { fetchNearbySites, fetchSiteGuide } from "../api/client";
 
 type Props = {
   language: Language;
@@ -26,6 +27,7 @@ const CENTER_LNG = 39.9;
 const ZOOM = 11;
 const SELECTED_ZOOM = 13;
 const MAP_HEIGHT = 340;
+const SPEECH_LANGUAGE: Record<Language, string> = { en: "en-US", ar: "ar-SA" };
 
 export default function NavigationScreen({ language, selectedId, onSelectSite }: Props) {
   const t = strings[language];
@@ -35,6 +37,12 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
   // (see backend/src/services/overpassClient.ts). Fails soft — an empty
   // array on error just means no extra pins, the 3 hub sites still work.
   const [nearbySites, setNearbySites] = useState<GeoSite[]>([]);
+  // Bilingual summary shown when a site is selected — reuses the same guide
+  // content the Guide screen shows, fetched fresh per selection. Fails soft
+  // to null (card just doesn't show) for pins with no guide entry, e.g.
+  // Overpass-sourced hospitals/police stations aren't in STUB_SITES.
+  const [story, setStory] = useState<{ en: string; ar: string } | null>(null);
+  const [storyLoading, setStoryLoading] = useState(false);
 
   useEffect(() => {
     fetchNearbySites()
@@ -43,6 +51,25 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
       )
       .catch(() => setNearbySites([]));
   }, []);
+
+  useEffect(() => {
+    Speech.stop();
+    if (!selectedId) {
+      setStory(null);
+      return;
+    }
+    setStoryLoading(true);
+    setStory(null);
+    fetchSiteGuide(selectedId)
+      .then((data) => setStory(data.error ? null : { en: data.en, ar: data.ar }))
+      .catch(() => setStory(null))
+      .finally(() => setStoryLoading(false));
+  }, [selectedId]);
+
+  function speakStory() {
+    if (!story) return;
+    Speech.speak(story[language], { language: SPEECH_LANGUAGE[language] });
+  }
 
   // Real coordinates (approximate — general-knowledge landmarks, not
   // surveyed; live Overpass verification of these specific ones was
@@ -85,6 +112,25 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
           <Text style={styles.infoText}>{selected ? selected.label : t.navigationHint}</Text>
         </View>
       </View>
+      {selected && (storyLoading || story) ? (
+        <View style={[styles.storyCard, { maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" }]}>
+          {storyLoading ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : story ? (
+            <>
+              <View style={[styles.storyHeaderRow, rtl && styles.rowReverse]}>
+                <Text style={styles.storyTitle}>{selected.label}</Text>
+                <Pressable onPress={speakStory} hitSlop={8} style={styles.listenButton}>
+                  <Text style={styles.listenButtonText}>🔊 {t.listenButton}</Text>
+                </Pressable>
+              </View>
+              <Text style={[styles.storyText, styles.textRTL]}>{story.ar}</Text>
+              <View style={styles.storyDivider} />
+              <Text style={styles.storyText}>{story.en}</Text>
+            </>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -120,4 +166,23 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   infoText: { fontSize: 15, fontWeight: "700", color: colors.textDark, fontFamily: fonts.body },
+  storyCard: {
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    ...shadow,
+  },
+  storyHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  storyTitle: { fontSize: 16, fontWeight: "700", fontFamily: fonts.heading, color: colors.textDark },
+  listenButton: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radii.pill,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  listenButtonText: { fontSize: 13, fontWeight: "600", color: colors.primaryDark },
+  storyText: { fontSize: 14, lineHeight: 20, color: colors.textDark, fontFamily: fonts.body },
+  storyDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
 });
