@@ -161,8 +161,12 @@ Built with Claude Code. This is the first version / MVP.
   stronger multilingual/Arabic quality. Important distinction: this is Google **AI
   Studio**'s free tier, a separate product from Google Cloud/Maps Platform billing (the
   thing dropped for maps, see the "No Google Maps" decision above) — no billing card
-  required for this one, as of when this was wired up. Model used: `gemini-2.5-flash`.
-  Separate English/Arabic system prompts, same as the Claude version had.
+  required for this one, as of when this was wired up. Model used: `gemini-3.5-flash`
+  (`gemini-2.5-flash`, the first choice, turned out to be no longer available to new API
+  keys — Google returned a live 404 for it; verify against
+  https://ai.google.dev/gemini-api/docs/models if this breaks again in the future, model
+  availability shifts over time). Separate English/Arabic system prompts, same as the
+  Claude version had.
 - **Flow:** app listens via `Voice.start(locale)` → on-device transcript →
   `POST /api/voice/text { text, language }` → Gemini reply (text only, no backend audio
   handling anymore) → `Speech.speak(reply, { language })` plays it back on-device.
