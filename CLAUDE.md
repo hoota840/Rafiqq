@@ -170,12 +170,19 @@ Built with Claude Code. This is the first version / MVP.
   (offices that manage pilgrim groups by nationality/region — genuinely useful wayfinding
   targets, not generic filler), and pilgrim guidance centres, across the Masjid
   al-Haram/Mina/Muzdalifah/Arafat corridor (same bounding box the map is centered/zoomed on).
-- **Backend:** `backend/src/services/overpassClient.ts` — POSTs an Overpass QL query to the
-  free public `overpass-api.de` endpoint (no API key, no billing — same open-data source as
-  the map tiles themselves), in-memory cached for 24h (this data barely changes), and
-  **fails soft**: if Overpass is slow/down, it serves the last-known cached list or an empty
-  list, never throws — a flaky third-party public service shouldn't break the map's core 3
-  hub pins. Exposed via `GET /api/navigation/sites` (`backend/src/routes/navigation.ts`).
+- **Backend:** `backend/src/services/overpassClient.ts` — GETs an Overpass QL query (as a
+  URL param, not a POST body — a raw POST against `overpass-api.de` returned 406 Not
+  Acceptable in live testing regardless of content type, so GET is what's actually used)
+  against the free public Overpass API, no key/billing needed, same open-data source as the
+  map tiles themselves. Tries `overpass-api.de` then the `overpass.kumi.systems` mirror in
+  order (the primary returned a live 504 "server too busy" during testing — public Overpass
+  instances get overloaded). In-memory cached for 24h (this data barely changes). **Fails
+  soft through three layers**, verified by deliberately triggering the failure during
+  testing: live fetch → last-known cache → a small hand-verified static seed list baked into
+  the file itself (real POIs captured from an earlier successful query) — so a demo never
+  shows an empty map just because a free public service happens to be down at the wrong
+  moment, without ever fabricating data that wasn't actually confirmed to exist. Exposed via
+  `GET /api/navigation/sites` (`backend/src/routes/navigation.ts`).
 - **App:** `app/src/screens/NavigationScreen.tsx` fetches this on mount
   (`fetchNearbySites` in `app/src/api/client.ts`) and merges it with the 3 hub sites before
   passing everything to `LeafletMapView`. POIs render as small emoji markers
