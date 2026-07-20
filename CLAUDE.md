@@ -48,17 +48,28 @@ Built with Claude Code. This is the first version / MVP.
   browser-based web preview, since WebView is a native module. `SchematicSiteMap.tsx` (the
   earlier zero-dependency, no-internet-needed version) is kept in the repo unused as a
   candidate for an offline fallback later, not deleted.
-- **Snack web preview map fix:** `snack-preview.js`'s `NavigationScreen` used to fall back to
-  the old percentage-based schematic pin layout unconditionally, since it can't use
-  `react-native-webview`. It now branches on `Platform.OS === 'web'` (true in Snack's browser
-  preview) and renders a raw `React.createElement('iframe', { src:
-  'https://www.openstreetmap.org/export/embed.html?...' })` instead — a plain HTML iframe
-  works fine there because Snack's web preview runs on `react-native-web`/real DOM, unlike
-  WebView which is native-only. Shows real OpenStreetMap tiles of the Makkah/Mina/Arafat
-  corridor with a marker, plus a row of site-select pill buttons underneath (the iframe can't
-  receive click events for custom pins the way the native WebView setup does). Falls back to
-  the old percentage-pin layout when `Platform.OS !== 'web'` (i.e. a phone opened via Snack's
-  Expo Go QR code, where iframes don't render).
+- **Snack web preview map fix, then upgraded to a full real map.** First pass:
+  `snack-preview.js`'s `NavigationScreen` branched on `Platform.OS === 'web'` (true in
+  Snack's browser preview) and rendered OSM's `/export/embed.html` in an iframe — but that
+  endpoint only supports one marker and a fixed frame per load, too limited once there were
+  7 hub sites plus real nearby POIs to show together. **Superseded:** `buildMapHtml()` in
+  `snack-preview.js` now generates a full, real, freely pannable/zoomable Leaflet.js map
+  (same CDN'd Leaflet.js/CSS and OpenStreetMap tiles as the real app's `LeafletMapView.tsx`)
+  as a raw HTML string, rendered via `<iframe srcDoc={...}>` instead of `src={url}` — no
+  network round-trip to build the page itself, only the Leaflet assets and tiles come from
+  the network. Every site (7 hub sites + real Overpass-sourced nearby POIs, fetched
+  client-side from `GET /api/navigation/sites`, same endpoint the real app uses) renders as a
+  marker simultaneously, with category emoji icons matching `LeafletMapView.tsx`. Marker
+  clicks `postMessage` to the parent window (`window.parent.postMessage`, the web
+  equivalent of the real app's `window.ReactNativeWebView.postMessage`), caught by a
+  `window.addEventListener('message', ...)` in `NavigationScreen` that calls `onSelectSite`
+  — so tapping a pin in Snack now works the same way it does on a real device. The map still
+  re-centers/zooms on whichever site is selected (tap, the pill-button row, or a voice
+  command), but from there it's fully explorable, not a fixed frame. This gives Snack's web
+  preview genuine feature parity with the real native map, not just a lesser stand-in.
+  Native (`Platform.OS !== 'web'`, i.e. a phone opened via Snack's Expo Go QR code) still
+  falls back to the old percentage-pin schematic, since iframes don't render there — that
+  part is unchanged.
 - **Build order:** The voice conversation loop (STT → Claude → TTS, English/Arabic) is
   the shared foundation every other module sits on top of, so it's built first
   mechanically. Navigation, historical guide, and health are then built as parallel
@@ -221,11 +232,12 @@ Built with Claude Code. This is the first version / MVP.
   used for the 3 main hub sites, so "go here" and "nearby amenity" read differently at a
   glance. `GeoSite`'s `category` field is optional specifically so the 3 hub sites (no
   category set) keep the default marker.
-- **Native-only, like the rest of the live map:** this only shows up in `LeafletMapView`
-  (WebView, real device build), not `snack-preview.js`'s map, since Snack's iframe-embedded
-  OSM view only supports a single `marker` URL param — adding many custom pins there would
-  need a different embed approach, not attempted here (Snack's map was already documented
-  as a lesser experience than the real device build, see "Snack web preview map fix" above).
+- **Originally native-only, later added to Snack too:** this first shipped only in
+  `LeafletMapView` (WebView, real device build) since Snack's OSM-embed iframe only
+  supported one marker. Once that embed was replaced with a full `srcDoc`-rendered Leaflet
+  map (see "Snack web preview map fix, then upgraded to a full real map" above),
+  `snack-preview.js`'s `NavigationScreen` started fetching `GET /api/navigation/sites`
+  client-side too, so real nearby POIs now show up in both places, not just the native build.
 - **What this does NOT solve:** turn-by-turn routing (`POST /api/navigation/route` is still
   a stub) and indoor positioning inside Masjid al-Haram (see the Maps/positioning data open
   question above — confirmed no free data exists for that, not just unsearched).

@@ -9,7 +9,7 @@
 // mountain marks — no image assets or SVG library needed), a responsive max content width,
 // and full Arabic RTL mirroring. The real, full source of truth is app/App.tsx and app/src/.
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   SafeAreaView,
   View,
@@ -363,15 +363,85 @@ function VoiceScreen({ t, language, onNavigateToSite }) {
   );
 }
 
+// Builds a full, real, freely pannable/zoomable Leaflet map (Leaflet.js from
+// a CDN, real OpenStreetMap tiles) as a raw HTML document, rendered via
+// iframe srcDoc. This replaces the earlier approach of embedding OSM's
+// /export/embed.html, which only supports ONE marker and a fixed frame per
+// load — too limited once there are 7+ hub sites plus real nearby POIs to
+// show at once. srcDoc (not src) means the HTML is generated locally, no
+// network round-trip to build the page itself (only the Leaflet JS/CSS and
+// map tiles come from the network). Marker clicks postMessage to the parent
+// window, mirroring how the real app's LeafletMapView.tsx (WebView, native)
+// talks to React Native via window.ReactNativeWebView.postMessage.
+function buildMapHtml(sites, centerLat, centerLng, zoom) {
+  var sitesJson = JSON.stringify(sites);
+  return (
+    '<!DOCTYPE html><html><head>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
+    '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />' +
+    '<style>html,body,#map{height:100%;margin:0;padding:0;}</style>' +
+    '</head><body><div id="map"></div>' +
+    '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>' +
+    '<script>' +
+    'var sites = ' + sitesJson + ';' +
+    'var map = L.map("map").setView([' + centerLat + ',' + centerLng + '], ' + zoom + ');' +
+    'L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors", maxZoom: 19 }).addTo(map);' +
+    'var CATEGORY_ICONS = { hospital: "🏥", police: "👮", tawafa: "🏢", guidance: "ℹ️", other: "📍" };' +
+    'sites.forEach(function (site) {' +
+    '  var marker;' +
+    '  if (site.category && CATEGORY_ICONS[site.category]) {' +
+    '    var icon = L.divIcon({ html: "<div style=\\"font-size:20px;line-height:24px;text-align:center;\\">" + CATEGORY_ICONS[site.category] + "</div>", className: "", iconSize: [24,24], iconAnchor: [12,12] });' +
+    '    marker = L.marker([site.lat, site.lng], { icon: icon }).addTo(map);' +
+    '  } else {' +
+    '    marker = L.marker([site.lat, site.lng]).addTo(map);' +
+    '  }' +
+    '  marker.bindPopup(site.label);' +
+    '  marker.on("click", function () { window.parent.postMessage(JSON.stringify({ id: site.id }), "*"); });' +
+    '});' +
+    '</script></body></html>'
+  );
+}
+
 // selectedId/onSelectSite are lifted up to App() so a voice command
 // ("take me to Mina") can drive the map too, not just a tap.
 function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
   const { contentMaxWidth } = useResponsive();
   const isWeb = Platform.OS === 'web';
+  const [nearbySites, setNearbySites] = useState([]);
+
+  // Real hospitals/police/Tawafa offices/guidance centres from OpenStreetMap
+  // - same backend endpoint the real app uses (backend/src/services/
+  // overpassClient.ts). Fails soft: an empty array just means no extra pins.
+  useEffect(() => {
+    fetch(API_BASE + '/api/navigation/sites')
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        setNearbySites(
+          (data.sites || []).map(function (s) {
+            return { id: s.id, label: s.name, lat: s.lat, lng: s.lng, category: s.category };
+          })
+        );
+      })
+      .catch(function () { setNearbySites([]); });
+  }, []);
+
+  // Marker-click messages from the iframe (postMessage), only relevant on web.
+  useEffect(() => {
+    if (!isWeb) return;
+    function handleMessage(event) {
+      try {
+        var data = JSON.parse(event.data);
+        if (data && data.id) onSelectSite(data.id);
+      } catch (e) {}
+    }
+    window.addEventListener('message', handleMessage);
+    return function () { window.removeEventListener('message', handleMessage); };
+  }, [isWeb, onSelectSite]);
+
   // Real coordinates (approximate — general-knowledge landmarks, not
   // surveyed). The Makkah-corridor 3 also have a schematic xPct/yPct for the
-  // native (non-web) fallback pin layout; the 4 farther sites (Madinah is
-  // ~340km away) only make sense on the real web map, not that schematic, so
+  // native (non-web) fallback pin layout; the farther sites and real nearby
+  // POIs only make sense on the real web map, not that schematic, so
   // they're web-only.
   const coreSites = [
     { id: 'haram', label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262, xPct: 18, yPct: 65 },
@@ -384,19 +454,17 @@ function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
     { id: 'quba', label: t.navigationSiteQuba, lat: 24.4396, lng: 39.6169 },
     { id: 'thawr', label: t.navigationSiteThawr, lat: 21.3742, lng: 39.8395 },
   ];
-  const sites = isWeb ? coreSites.concat(extraWebSites) : coreSites;
+  const sites = isWeb ? coreSites.concat(extraWebSites).concat(nearbySites) : coreSites;
   const selected = sites.find((s) => s.id === selectedId) || sites[0];
-  // Snack's browser preview runs on the web, where a plain <iframe> works —
-  // unlike react-native-webview (native-only, what the real app uses via
-  // LeafletMapView.tsx on an actual phone). Live OpenStreetMap tiles, free,
-  // no API key. Re-centers on whichever site is selected (needed now that
-  // Madinah sites are hundreds of km from the Makkah corridor).
-  const zoomDelta = 0.08;
-  const mapUrl =
-    'https://www.openstreetmap.org/export/embed.html?bbox=' +
-    (selected.lng - zoomDelta) + ',' + (selected.lat - zoomDelta) + ',' +
-    (selected.lng + zoomDelta) + ',' + (selected.lat + zoomDelta) +
-    '&layer=mapnik&marker=' + selected.lat + ',' + selected.lng;
+  // Real, freely pannable/zoomable Leaflet map with EVERY pin (7 hub sites +
+  // real nearby POIs) always shown at once — not the earlier one-marker-at-a-
+  // time OSM embed. Still re-centers/zooms on whichever site is selected
+  // (tap or voice command); from there the map is fully explorable, exactly
+  // like the real native app's map, not a fixed frame.
+  const mapHtml = useMemo(
+    () => buildMapHtml(sites, selected.lat, selected.lng, 13),
+    [sites, selected.lat, selected.lng]
+  );
 
   return (
     <View>
@@ -410,10 +478,9 @@ function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
       <View style={{ height: 320, marginHorizontal: 16, marginBottom: 16, borderRadius: 22, overflow: 'hidden', maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%' }}>
         {isWeb ? (
           React.createElement('iframe', {
-            key: mapUrl,
-            src: mapUrl,
+            key: selected.id,
+            srcDoc: mapHtml,
             title: 'Map',
-            loading: 'lazy',
             style: { border: 0, width: '100%', height: '100%' },
           })
         ) : (
@@ -442,8 +509,11 @@ function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
         </View>
       </View>
       {isWeb ? (
+        // Hub sites only (not nearbySites) — those still show as pins on the
+        // map itself, but a button per hospital/police station would clutter
+        // this row; it's meant for quick jumps between the named waypoints.
         <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', flexWrap: 'wrap', paddingHorizontal: 16, marginBottom: 16, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%', gap: 8 }}>
-          {sites.map((site) => (
+          {coreSites.concat(extraWebSites).map((site) => (
             <PillButton
               key={site.id}
               label={site.label}
