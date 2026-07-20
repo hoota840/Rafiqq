@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Rafiqq",
+    "slug": "rafiqq",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Rafiqq needs the microphone to hear your spoken questions.",
+        "NSSpeechRecognitionUsageDescription": "Rafiqq uses on-device speech recognition to understand your spoken questions."
+      }
+    },
+    "android": {
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "plugins": ["@react-native-voice/voice"]
+  }
+}

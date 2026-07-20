@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Expo / build output
+.expo/
+dist/
+
+# Env files (never commit real secrets)
+.env
+.env.local
+
+# Local-only Claude Code permission overrides
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backend local data store (see backend/src/services/userStore.ts)
+backend/data/
