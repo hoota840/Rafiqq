@@ -7,11 +7,18 @@ import { useResponsive } from "../hooks/useResponsive";
 import { colors, radii, spacing, fonts } from "../theme";
 import Card from "../components/Card";
 import SectionHeader from "../components/SectionHeader";
-import { KaabaEmblem, MountainMark } from "../components/Illustration";
+import { KaabaEmblem, MosqueMark, MountainMark } from "../components/Illustration";
 
 const SITES: { id: string; label: Record<Language, string>; Mark: React.ComponentType<{ size?: number }> }[] = [
   { id: "kaaba", label: { en: "The Kaaba", ar: "الكعبة" }, Mark: KaabaEmblem },
+  { id: "haram", label: { en: "Masjid al-Haram", ar: "المسجد الحرام" }, Mark: MosqueMark },
+  { id: "mina", label: { en: "Mina", ar: "منى" }, Mark: MosqueMark },
+  { id: "arafat", label: { en: "Arafat", ar: "عرفات" }, Mark: MosqueMark },
+  { id: "muzdalifah", label: { en: "Muzdalifah", ar: "مزدلفة" }, Mark: MosqueMark },
   { id: "jabal_al_nour", label: { en: "Jabal al-Nour", ar: "جبل النور" }, Mark: MountainMark },
+  { id: "thawr", label: { en: "Jabal Thawr", ar: "جبل ثور" }, Mark: MountainMark },
+  { id: "nabawi", label: { en: "Masjid an-Nabawi", ar: "المسجد النبوي" }, Mark: MosqueMark },
+  { id: "quba", label: { en: "Quba Mosque", ar: "مسجد قباء" }, Mark: MosqueMark },
 ];
 
 type Props = { language: Language };

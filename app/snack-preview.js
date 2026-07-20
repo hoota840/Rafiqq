@@ -65,6 +65,10 @@ const strings = {
     navigationSiteHaram: 'Masjid al-Haram',
     navigationSiteMina: 'Mina',
     navigationSiteArafat: 'Arafat',
+    navigationSiteMuzdalifah: 'Muzdalifah',
+    navigationSiteNabawi: 'Masjid an-Nabawi',
+    navigationSiteQuba: 'Quba Mosque',
+    navigationSiteThawr: 'Jabal Thawr',
     guideTitle: 'Site Guide',
     guideSubtitle: 'Tap a site to hear its history and significance',
     healthProfileTitle: 'Health Profile',
@@ -107,6 +111,10 @@ const strings = {
     navigationSiteHaram: 'المسجد الحرام',
     navigationSiteMina: 'منى',
     navigationSiteArafat: 'عرفات',
+    navigationSiteMuzdalifah: 'مزدلفة',
+    navigationSiteNabawi: 'المسجد النبوي',
+    navigationSiteQuba: 'مسجد قباء',
+    navigationSiteThawr: 'جبل ثور',
     guideTitle: 'دليل الأماكن',
     guideSubtitle: 'اضغط على أي موقع لسماع تاريخه وأهميته',
     healthProfileTitle: 'الملف الصحي',
@@ -180,7 +188,14 @@ function MountainMark({ size = 40 }) {
 
 const SITES = [
   { id: 'kaaba', label: { en: 'The Kaaba', ar: 'الكعبة' }, Mark: KaabaEmblem },
+  { id: 'haram', label: { en: 'Masjid al-Haram', ar: 'المسجد الحرام' }, Mark: MosqueMark },
+  { id: 'mina', label: { en: 'Mina', ar: 'منى' }, Mark: MosqueMark },
+  { id: 'arafat', label: { en: 'Arafat', ar: 'عرفات' }, Mark: MosqueMark },
+  { id: 'muzdalifah', label: { en: 'Muzdalifah', ar: 'مزدلفة' }, Mark: MosqueMark },
   { id: 'jabal_al_nour', label: { en: 'Jabal al-Nour', ar: 'جبل النور' }, Mark: MountainMark },
+  { id: 'thawr', label: { en: 'Jabal Thawr', ar: 'جبل ثور' }, Mark: MountainMark },
+  { id: 'nabawi', label: { en: 'Masjid an-Nabawi', ar: 'المسجد النبوي' }, Mark: MosqueMark },
+  { id: 'quba', label: { en: 'Quba Mosque', ar: 'مسجد قباء' }, Mark: MosqueMark },
 ];
 
 // Pilgrimage-specific icons for the nav menu, one per destination.
@@ -352,26 +367,36 @@ function VoiceScreen({ t, language, onNavigateToSite }) {
 // ("take me to Mina") can drive the map too, not just a tap.
 function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
   const { contentMaxWidth } = useResponsive();
-  // Real coordinates (approximate), matching the real app's NavigationScreen
-  // (app/src/screens/NavigationScreen.tsx) — same sites, same lat/lng.
-  const sites = [
+  const isWeb = Platform.OS === 'web';
+  // Real coordinates (approximate — general-knowledge landmarks, not
+  // surveyed). The Makkah-corridor 3 also have a schematic xPct/yPct for the
+  // native (non-web) fallback pin layout; the 4 farther sites (Madinah is
+  // ~340km away) only make sense on the real web map, not that schematic, so
+  // they're web-only.
+  const coreSites = [
     { id: 'haram', label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262, xPct: 18, yPct: 65 },
     { id: 'mina', label: t.navigationSiteMina, lat: 21.4133, lng: 39.8933, xPct: 48, yPct: 45 },
     { id: 'arafat', label: t.navigationSiteArafat, lat: 21.3549, lng: 39.984, xPct: 80, yPct: 28 },
   ];
+  const extraWebSites = [
+    { id: 'muzdalifah', label: t.navigationSiteMuzdalifah, lat: 21.3833, lng: 39.95 },
+    { id: 'nabawi', label: t.navigationSiteNabawi, lat: 24.4672, lng: 39.6111 },
+    { id: 'quba', label: t.navigationSiteQuba, lat: 24.4396, lng: 39.6169 },
+    { id: 'thawr', label: t.navigationSiteThawr, lat: 21.3742, lng: 39.8395 },
+  ];
+  const sites = isWeb ? coreSites.concat(extraWebSites) : coreSites;
   const selected = sites.find((s) => s.id === selectedId) || sites[0];
   // Snack's browser preview runs on the web, where a plain <iframe> works —
   // unlike react-native-webview (native-only, what the real app uses via
   // LeafletMapView.tsx on an actual phone). Live OpenStreetMap tiles, free,
-  // no API key, showing the real Makkah/Mina/Arafat corridor in Saudi Arabia.
-  // On a phone opened via Snack's Expo Go QR code (not the browser preview),
-  // iframes don't render, so that path keeps the old schematic pin layout.
-  const isWeb = Platform.OS === 'web';
+  // no API key. Re-centers on whichever site is selected (needed now that
+  // Madinah sites are hundreds of km from the Makkah corridor).
+  const zoomDelta = 0.08;
   const mapUrl =
-    'https://www.openstreetmap.org/export/embed.html?bbox=39.75,21.30,40.05,21.48&layer=mapnik&marker=' +
-    selected.lat +
-    ',' +
-    selected.lng;
+    'https://www.openstreetmap.org/export/embed.html?bbox=' +
+    (selected.lng - zoomDelta) + ',' + (selected.lat - zoomDelta) + ',' +
+    (selected.lng + zoomDelta) + ',' + (selected.lat + zoomDelta) +
+    '&layer=mapnik&marker=' + selected.lat + ',' + selected.lng;
 
   return (
     <View>

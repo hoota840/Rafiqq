@@ -16,12 +16,15 @@ type Props = {
   onSelectSite: (id: string) => void;
 };
 
-// Real coordinates (approximate) for the three example sites. Centered/zoomed
-// to show the Haram-Mina-Arafat corridor; pinch or scroll out to see more of
-// Saudi Arabia since this is a live, interactive map.
+// Default view: Haram-Mina-Arafat corridor; pinch or scroll out to see more
+// of Saudi Arabia since this is a live, interactive map. Selecting a site
+// (tap or voice command) re-centers the map on it instead — needed since
+// Madinah's sites (Masjid an-Nabawi, Quba) are ~340km from this corridor and
+// wouldn't be visible without that.
 const CENTER_LAT = 21.39;
 const CENTER_LNG = 39.9;
 const ZOOM = 11;
+const SELECTED_ZOOM = 13;
 const MAP_HEIGHT = 340;
 
 export default function NavigationScreen({ language, selectedId, onSelectSite }: Props) {
@@ -41,13 +44,25 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
       .catch(() => setNearbySites([]));
   }, []);
 
+  // Real coordinates (approximate — general-knowledge landmarks, not
+  // surveyed; live Overpass verification of these specific ones was
+  // attempted but both public Overpass instances were overloaded at the
+  // time, see CLAUDE.md). Covers the classic Hajj/Umrah waypoints, not just
+  // the Makkah corridor.
   const hubSites: GeoSite[] = [
     { id: "haram", label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262 },
     { id: "mina", label: t.navigationSiteMina, lat: 21.4133, lng: 39.8933 },
     { id: "arafat", label: t.navigationSiteArafat, lat: 21.3549, lng: 39.984 },
+    { id: "muzdalifah", label: t.navigationSiteMuzdalifah, lat: 21.3833, lng: 39.95 },
+    { id: "nabawi", label: t.navigationSiteNabawi, lat: 24.4672, lng: 39.6111 },
+    { id: "quba", label: t.navigationSiteQuba, lat: 24.4396, lng: 39.6169 },
+    { id: "thawr", label: t.navigationSiteThawr, lat: 21.3742, lng: 39.8395 },
   ];
   const sites = [...hubSites, ...nearbySites];
   const selected = sites.find((s) => s.id === selectedId) ?? null;
+  const mapCenterLat = selected?.lat ?? CENTER_LAT;
+  const mapCenterLng = selected?.lng ?? CENTER_LNG;
+  const mapZoom = selected ? SELECTED_ZOOM : ZOOM;
 
   return (
     <View style={styles.container}>
@@ -61,9 +76,9 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
       <View style={[styles.mapWrap, { maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" }]}>
         <LeafletMapView
           sites={sites}
-          centerLat={CENTER_LAT}
-          centerLng={CENTER_LNG}
-          zoom={ZOOM}
+          centerLat={mapCenterLat}
+          centerLng={mapCenterLng}
+          zoom={mapZoom}
           onSelectSite={onSelectSite}
         />
         <View style={styles.infoBar}>

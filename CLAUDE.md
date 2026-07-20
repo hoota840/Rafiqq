@@ -161,6 +161,37 @@ Built with Claude Code. This is the first version / MVP.
     └── translations/      # en/ar strings, extensible to more languages
 ```
 
+## Expanded famous-site coverage (decided — 7 hub sites, not just 3)
+
+- **Why:** the map/voice/guide only ever covered Masjid al-Haram, Mina, and Arafat. Added
+  Muzdalifah, Jabal Thawr (Cave of Thawr, near Makkah), Masjid an-Nabawi (the Prophet's
+  Mosque, Madinah), and Quba Mosque (Madinah) — the other classic Hajj/Umrah waypoints.
+  `NAVIGABLE_SITE_IDS` in `backend/src/services/geminiClient.ts` now has 7 entries
+  (`haram, mina, arafat, muzdalifah, nabawi, quba, thawr`); `NavigationScreen.tsx`'s hub
+  sites and `GuideScreen.tsx`'s site list both match.
+- **Coordinates are approximate, general-knowledge landmarks, not surveyed** — same standard
+  already used for the original 3 hub sites (labeled "approximate" from the start). Live
+  Overpass verification of the 4 new ones was attempted but both public Overpass endpoints
+  were overloaded/timing out at the time (matches the reliability issues already documented
+  under "Nearby real-world POIs" below) — proceeded with well-established published
+  coordinates rather than block on that, consistent with the map's existing purpose (general
+  orientation, not precision routing — see the Maps/positioning data open question above).
+- **Map re-centers on selection now, not just a fixed corridor view** — needed since
+  Madinah's 2 sites are ~340km from the Masjid al-Haram/Mina/Arafat corridor and wouldn't be
+  visible on the old fixed-bbox view. `NavigationScreen.tsx` computes `mapCenterLat`/
+  `mapCenterLng`/`mapZoom` from whichever site is selected (tap or voice command) instead of
+  always showing the same corridor view; `snack-preview.js`'s iframe embed does the
+  equivalent by recomputing its `bbox` around the selected site. In the real app, selecting a
+  Madinah site pans/zooms the live Leaflet map there; in Snack, the 4 farther sites are
+  web-only (not added to the native-fallback schematic's percentage-based pin layout, which
+  doesn't generalize to sites far outside the original corridor).
+- **Guide content for all of them** — `backend/src/routes/guide.ts`'s `STUB_SITES` and the
+  voice assistant's `SITE_FACTS` (`geminiClient.ts`) both cover all 9 named sites (the 7 hub
+  sites plus Kaaba and Jabal al-Nour, which aren't map hub pins but do have Guide entries and
+  voice grounding) with the same hand-written facts in both places, so the Guide screen and a
+  spoken voice answer about the same site won't contradict each other. Still explicitly not
+  the vetted, scholarly-reviewed corpus described in the open question above.
+
 ## Nearby real-world POIs (decided — free via OpenStreetMap Overpass API)
 
 - **Why:** the map only ever showed 3 hardcoded example pins (Haram/Mina/Arafat). Checked
@@ -221,12 +252,21 @@ Built with Claude Code. This is the first version / MVP.
   stronger multilingual/Arabic quality. Important distinction: this is Google **AI
   Studio**'s free tier, a separate product from Google Cloud/Maps Platform billing (the
   thing dropped for maps, see the "No Google Maps" decision above) — no billing card
-  required for this one, as of when this was wired up. Model used: `gemini-3.5-flash`
-  (`gemini-2.5-flash`, the first choice, turned out to be no longer available to new API
-  keys — Google returned a live 404 for it; verify against
-  https://ai.google.dev/gemini-api/docs/models if this breaks again in the future, model
-  availability shifts over time). Separate English/Arabic system prompts, same as the
-  Claude version had.
+  required for this one, as of when this was wired up. Separate English/Arabic system
+  prompts, same as the Claude version had.
+- **Model fallback list, not a single model — learned this the hard way twice.**
+  `gemini-2.5-flash` 404'd as "no longer available to new API keys" (caught before it ever
+  shipped). `gemini-3.5-flash` (the replacement) turned out to have only a **20
+  requests/day** free-tier quota, shared across the whole deployed backend — hit a live 429
+  RESOURCE_EXHAUSTED during actual testing, not a hypothetical. `MODEL_CANDIDATES` in
+  `geminiClient.ts` is now an ordered list — `gemini-2.5-flash-lite` first (free tier: 1,000
+  requests/day per Google's docs, explicitly their stable budget-tier model), `gemini-3.5-flash`
+  second as a fallback. `getAgentReply`'s retry loop: a 503 (transient overload) gets a
+  couple of short retries on the *same* model; a 429 (quota) or 404 (model gone) moves
+  straight to the *next* model in the list instead, since retrying the same model won't fix
+  either of those. If this breaks again, verify current model IDs and free-tier limits
+  against https://ai.google.dev/gemini-api/docs/models — Google's model
+  availability/quotas have shifted at least twice already during this project.
 - **Flow:** app listens via `Voice.start(locale)` → on-device transcript →
   `POST /api/voice/text { text, language }` → Gemini reply (text only, no backend audio
   handling anymore) → `Speech.speak(reply, { language })` plays it back on-device.
