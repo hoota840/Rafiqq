@@ -27,10 +27,11 @@ import {
 } from 'react-native';
 
 // Snack runs in the cloud and can NOT reach "localhost" on your laptop — that's
-// why Snack says it "cannot reach the backend". Deploy backend/ (see
-// backend/README.md "Deploying", e.g. to Render's free tier) and paste the
-// public URL you get here, e.g. 'https://rafiqq-backend.onrender.com'.
-const API_BASE = 'http://localhost:4000';
+// why Snack said it "cannot reach the backend". Deployed on Render (free tier,
+// see backend/README.md "Deploying"); update this if the backend is redeployed
+// elsewhere. Render's free tier spins down after ~15min idle, so the first
+// request after a while may take ~30-60s to wake it up.
+const API_BASE = 'https://rafiqq-backend.onrender.com';
 const CONTENT_MAX_WIDTH = 640;
 const TOP_BAR_HEIGHT = 60;
 // Gap below the safe-area/status-bar so the bar sits a little lower instead of
