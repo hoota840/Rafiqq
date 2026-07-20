@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const config = {
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
   jwtSecret: process.env.JWT_SECRET ?? "",
   port: process.env.PORT ?? "4000",
 };

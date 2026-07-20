@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAgentReply } from "../services/claudeClient";
+import { getAgentReply } from "../services/geminiClient";
 
 const router = Router();
 

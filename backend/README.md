@@ -9,7 +9,7 @@ src/
 ├── middleware/
 │   └── requireAuth.ts      # JWT bearer-token verification
 ├── services/
-│   ├── claudeClient.ts     # Claude API conversation orchestration
+│   ├── geminiClient.ts     # Gemini API (Google AI Studio free tier) conversation orchestration
 │   └── userStore.ts        # flat-file JSON user store (auth)
 └── routes/
     ├── auth.ts              # signup / login / me — real (bcrypt + JWT)
@@ -23,7 +23,7 @@ src/
 
 ```
 npm install
-cp .env.example .env   # fill in ANTHROPIC_API_KEY and JWT_SECRET
+cp .env.example .env   # fill in GEMINI_API_KEY and JWT_SECRET
 npm run dev
 ```
 
@@ -40,9 +40,11 @@ tier works well for a hackathon demo:
    the GitHub repo.
 3. Root directory: `backend`. Build command: `npm install && npm run build`.
    Start command: `npm start`.
-4. Add environment variables in the Render dashboard: `ANTHROPIC_API_KEY`,
+4. Add environment variables in the Render dashboard: `GEMINI_API_KEY` (free,
+   no billing card — get one at https://aistudio.google.com/apikey),
    `JWT_SECRET` (a long random string — see `.env.example` for how to
-   generate one). Render sets `PORT` itself.
+   generate one, or let the `render.yaml` Blueprint auto-generate it).
+   Render sets `PORT` itself.
 5. Deploy. Render gives you a public URL like
    `https://rafiqq-backend.onrender.com` — put that in `app/.env`'s
    `EXPO_PUBLIC_API_URL` (and in `app/snack-preview.js`'s `API_BASE`) to fix

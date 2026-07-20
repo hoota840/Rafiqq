@@ -1,9 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { config } from "../config";
 
-const anthropic = config.anthropicApiKey
-  ? new Anthropic({ apiKey: config.anthropicApiKey })
-  : null;
+// Google AI Studio's Gemini API free tier — not Google Cloud/Maps Platform
+// billing (the thing dropped for maps, see CLAUDE.md). No billing card
+// required for this free tier as of when this was wired up.
+const ai = config.geminiApiKey ? new GoogleGenAI({ apiKey: config.geminiApiKey }) : null;
+
+const MODEL = "gemini-2.5-flash";
 
 const SYSTEM_PROMPTS: Record<"en" | "ar", string> = {
   en: "You are Rafiqq, a warm, concise voice guide for Hajj and Umrah pilgrims. Help with directions, the history and significance of holy sites, and general wellbeing questions. Keep answers short and spoken-friendly — this will be read aloud. If asked something outside your knowledge or safety-critical (medical emergencies), say so plainly and recommend the pilgrim seek in-person help.",
@@ -14,17 +17,18 @@ export async function getAgentReply(
   userText: string,
   language: "en" | "ar"
 ): Promise<string> {
-  if (!anthropic) {
-    throw new Error("ANTHROPIC_API_KEY is not configured");
+  if (!ai) {
+    throw new Error("GEMINI_API_KEY is not configured");
   }
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 300,
-    system: SYSTEM_PROMPTS[language],
-    messages: [{ role: "user", content: userText }],
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: userText,
+    config: {
+      systemInstruction: SYSTEM_PROMPTS[language],
+      maxOutputTokens: 300,
+    },
   });
 
-  const textBlock = message.content.find((block) => block.type === "text");
-  return textBlock && textBlock.type === "text" ? textBlock.text : "";
+  return response.text ?? "";
 }
