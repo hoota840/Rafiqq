@@ -58,7 +58,7 @@ const fontHeading = Platform.select({ ios: 'Georgia', android: 'serif', default:
 const strings = {
   en: {
     voiceTitle: 'Talk to Rafiqq',
-    voicePrompt: 'Tap and speak, in English or Arabic',
+    voicePrompt: "Snack's browser preview can't use the real microphone - tap a sample command below to try the same pipeline a real transcript would use.",
     navigationTitle: 'Navigation',
     navigationPlaceholder: 'Live map data from OpenStreetMap - indoor positioning inside Masjid al-Haram and official site boundaries have not been sourced yet.',
     navigationHint: 'Tap a pin to select a site',
@@ -100,7 +100,7 @@ const strings = {
   },
   ar: {
     voiceTitle: 'تحدث مع رفيق',
-    voicePrompt: 'اضغط وتحدث بالعربية أو الإنجليزية',
+    voicePrompt: 'لا يمكن لمعاينة المتصفح في Snack استخدام الميكروفون الحقيقي - اضغط على أحد الأوامر التجريبية أدناه لتجربة نفس المسار الذي سيستخدمه نص صوتي حقيقي.',
     navigationTitle: 'الملاحة',
     navigationPlaceholder: 'بيانات خريطة حية من OpenStreetMap - تحديد المواقع الداخلي داخل المسجد الحرام والحدود الرسمية للمواقع لم يتم الحصول عليها بعد.',
     navigationHint: 'اضغط على أي دبوس لاختيار الموقع',
@@ -280,21 +280,38 @@ function FloatingMicButton({ onPress, rtl }) {
   );
 }
 
-function VoiceScreen({ t, language }) {
+// Snack's browser preview can't use the real microphone (@react-native-voice/
+// voice is a native module, see CLAUDE.md) - these three buttons send canned
+// text through the exact same backend/app pipeline a real transcript would,
+// so the in-app command handling (navigate / call emergency) is still
+// testable here even without real speech input.
+const DEMO_PROMPTS = [
+  { key: 'ask', en: 'Tell me about the Kaaba', ar: 'أخبرني عن الكعبة' },
+  { key: 'navigate', en: 'Take me to Mina', ar: 'خذني إلى منى' },
+  { key: 'emergency', en: 'I need emergency help', ar: 'أحتاج مساعدة طارئة' },
+];
+
+function VoiceScreen({ t, language, onNavigateToSite }) {
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState('');
   const { contentMaxWidth } = useResponsive();
 
-  async function simulateSpeak() {
+  async function sendDemoText(text) {
     setBusy(true);
+    setReply('');
     try {
       const res = await fetch(API_BASE + '/api/voice/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: 'Where is the Kaaba?', language }),
+        body: JSON.stringify({ text, language }),
       });
       const data = await res.json();
       setReply(data.reply || data.error || '');
+      if (data.action && data.action.type === 'call_emergency') {
+        Linking.openURL('tel:999');
+      } else if (data.action && data.action.type === 'navigate_to_site') {
+        onNavigateToSite(data.action.siteId);
+      }
     } catch (e) {
       setReply('PLACEHOLDER: could not reach backend.');
     } finally {
@@ -314,22 +331,27 @@ function VoiceScreen({ t, language }) {
         <Text style={{ fontSize: 14, color: colors.textMuted, marginBottom: 28, textAlign: 'center' }}>
           {t.voicePrompt}
         </Text>
-        <Pressable
-          style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
-          onPress={simulateSpeak}
-          disabled={busy}
-        >
-          {busy ? <ActivityIndicator color={colors.white} /> : <Text style={{ fontSize: 34 }}>🎙️</Text>}
-        </Pressable>
+        {busy ? <ActivityIndicator color={colors.primary} style={{ marginBottom: 12 }} /> : null}
+        {DEMO_PROMPTS.map((p) => (
+          <PillButton
+            key={p.key}
+            label={p[language]}
+            onPress={() => sendDemoText(p[language])}
+            disabled={busy}
+            variant={p.key === 'emergency' ? undefined : 'outline'}
+            style={p.key === 'emergency' ? { backgroundColor: colors.danger, marginTop: 8 } : { marginTop: 8 }}
+          />
+        ))}
         {reply ? <Text style={{ marginTop: 28, fontSize: 16, textAlign: 'center', color: colors.textDark }}>{reply}</Text> : null}
       </Card>
     </View>
   );
 }
 
-function NavigationScreen({ t, rtl }) {
+// selectedId/onSelectSite are lifted up to App() so a voice command
+// ("take me to Mina") can drive the map too, not just a tap.
+function NavigationScreen({ t, rtl, selectedId, onSelectSite }) {
   const { contentMaxWidth } = useResponsive();
-  const [selectedId, setSelectedId] = useState('haram');
   // Real coordinates (approximate), matching the real app's NavigationScreen
   // (app/src/screens/NavigationScreen.tsx) — same sites, same lat/lng.
   const sites = [
@@ -376,7 +398,7 @@ function NavigationScreen({ t, rtl }) {
               return (
                 <Pressable
                   key={site.id}
-                  onPress={() => setSelectedId(site.id)}
+                  onPress={() => onSelectSite(site.id)}
                   style={{ position: 'absolute', left: `${site.xPct}%`, top: `${site.yPct}%`, alignItems: 'center', width: 90, marginLeft: -45, marginTop: -18 }}
                 >
                   <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: active ? colors.primary : colors.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
@@ -400,7 +422,7 @@ function NavigationScreen({ t, rtl }) {
             <PillButton
               key={site.id}
               label={site.label}
-              onPress={() => setSelectedId(site.id)}
+              onPress={() => onSelectSite(site.id)}
               variant={site.id === selectedId ? 'primary' : 'outline'}
               rtl={rtl}
             />
@@ -653,6 +675,9 @@ const SECTION_ORDER = ['voice', 'navigation', 'guide', 'health', 'account'];
 export default function App() {
   const [language, setLanguage] = useState('en');
   const [menuOpen, setMenuOpen] = useState(false);
+  // Lifted out of NavigationScreen so a voice demo command ("Take me to
+  // Mina") can select a site on the map too, not just a tap.
+  const [selectedSiteId, setSelectedSiteId] = useState('haram');
   const t = strings[language];
   const rtl = isRTL(language);
   const { contentMaxWidth } = useResponsive();
@@ -669,6 +694,11 @@ export default function App() {
     setMenuOpen(false);
     const y = sectionOffsets.current[name] || 0;
     if (scrollRef.current) scrollRef.current.scrollTo({ y: Math.max(y - 16, 0), animated: true });
+  }
+
+  function navigateToSite(siteId) {
+    setSelectedSiteId(siteId);
+    scrollToSection('navigation');
   }
 
   return (
@@ -704,10 +734,10 @@ export default function App() {
           hamburger menu below scrolls to a section instead of swapping screens. */}
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
         <View onLayout={recordOffset('voice')}>
-          <VoiceScreen t={t} language={language} />
+          <VoiceScreen t={t} language={language} onNavigateToSite={navigateToSite} />
         </View>
         <View onLayout={recordOffset('navigation')}>
-          <NavigationScreen t={t} rtl={rtl} />
+          <NavigationScreen t={t} rtl={rtl} selectedId={selectedSiteId} onSelectSite={setSelectedSiteId} />
         </View>
         <View onLayout={recordOffset('guide')}>
           <GuideScreen t={t} language={language} rtl={rtl} />

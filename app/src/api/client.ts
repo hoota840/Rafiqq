@@ -3,6 +3,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000";
 const TOKEN_KEY = "rafiqq_auth_token";
 
+export type VoiceAction =
+  | { type: "call_emergency" }
+  | { type: "navigate_to_site"; siteId: string };
+
 export async function sendVoiceText(text: string, language: "en" | "ar") {
   const res = await fetch(`${API_BASE}/api/voice/text`, {
     method: "POST",
@@ -10,7 +14,7 @@ export async function sendVoiceText(text: string, language: "en" | "ar") {
     body: JSON.stringify({ text, language }),
   });
   if (!res.ok) throw new Error(`Voice request failed: ${res.status}`);
-  return res.json() as Promise<{ reply: string; error?: string }>;
+  return res.json() as Promise<{ reply: string; action: VoiceAction | null; error?: string }>;
 }
 
 export async function fetchSiteGuide(siteId: string) {

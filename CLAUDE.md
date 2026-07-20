@@ -196,9 +196,54 @@ Built with Claude Code. This is the first version / MVP.
   build. `app/app.json` now declares the `@react-native-voice/voice` config plugin plus iOS
   `NSMicrophoneUsageDescription`/`NSSpeechRecognitionUsageDescription` and the Android
   `RECORD_AUDIO` permission, which only take effect through `expo prebuild`/EAS, not Expo
-  Go. TTS (`expo-speech`) has no such restriction. `app/snack-preview.js` was already
-  Expo-Go/Snack-safe before this change (its Voice screen simulates a canned request rather
-  than using the mic) and needed no edits.
+  Go. TTS (`expo-speech`) has no such restriction. `app/snack-preview.js` originally needed
+  no edits for this (its Voice screen simulated a canned request rather than using the mic)
+  — that changed with in-app voice commands below, which did need `snack-preview.js` edits.
+- **Real dev-build path (decided):** `app/eas.json` has a `development` profile
+  (`developmentClient: true`, `distribution: internal`, Android `buildType: apk`) so
+  `eas build --profile development --platform android` produces a directly-sideloadable
+  `.apk` — chosen over iOS since iOS dev builds need a paid Apple Developer Program account.
+  EAS Build's free tier (15 Android + 15 iOS builds/month, no card required) covers this.
+  Since Node isn't installed locally (see "Development environment" above), this build is
+  meant to be triggered from a GitHub Codespace, not this machine.
+
+## Voice in-app commands (decided — Gemini function calling)
+
+- **What it does:** beyond plain Q&A, the voice assistant can now trigger two in-app
+  actions directly from recognized speech, using Gemini's function-calling
+  (`tools`/`functionDeclarations` in `backend/src/services/geminiClient.ts`, `AUTO` mode so
+  the model chooses between calling a function or just answering in text):
+  - `call_emergency` — pilgrim says something like "I need help" / an emergency — opens the
+    phone's dialer pre-filled with 999 immediately, no on-screen confirmation step (a
+    deliberate choice — see below).
+  - `navigate_to_site(siteId)` — pilgrim says "take me to Mina" / asks for directions to
+    Masjid al-Haram, Mina, or Arafat — scrolls the app to the Navigation section and selects
+    that site on the map.
+  The backend returns `{ reply, action }`; the app is responsible for actually performing
+  `action` (`VoiceScreen.tsx`'s `performAction`) — the backend never calls `Linking.openURL`
+  itself, since it has no access to the device.
+- **No confirmation step before opening the dialer — deliberate, explicitly requested.**
+  Weighed against a "confirm on screen first" option (safer against a false trigger from
+  misheard/misinterpreted speech) but the project owner chose immediate. Note this still
+  isn't a silent auto-call: `Linking.openURL('tel:999')` only opens the phone's own dialer
+  pre-filled — the pilgrim still has to tap call themselves in the OS UI. This is a
+  different, faster-triggering path than the Health screen's manual "Call Emergency — 999"
+  button (same underlying mechanism), and is still separate from the alert → confirm →
+  auto-escalate state machine described in the emergency escalation model above — voice
+  "call emergency" bypasses that state machine entirely rather than feeding into it.
+- **Grounded site facts, not vetted content:** the system prompt in `geminiClient.ts`
+  embeds a short hand-written fact sheet for the 5 named sites (Masjid al-Haram, Kaaba,
+  Mina, Arafat, Jabal al-Nour) so spoken answers about their history/significance stay
+  consistent with what's shown in `GuideScreen`/`NavigationScreen`, instead of the model
+  free-generating from general knowledge. This is explicitly **not** the vetted,
+  scholarly-reviewed corpus described as an open blocker above — still needed before this
+  is fully trustworthy for religious/historical accuracy at scale.
+- **`app/snack-preview.js` mirrors this** without needing a real microphone: since the
+  action-handling pipeline only depends on what text reaches the backend (not how it got
+  captured), the Snack preview's Voice screen replaced its old single canned-question button
+  with three sample-command buttons ("Tell me about the Kaaba" / "Take me to Mina" / "I need
+  emergency help") that exercise the same `navigate_to_site`/`call_emergency` paths — so
+  this feature is actually fully testable in Snack, unlike real speech input.
 
 ## Auth (decided — real backend email/password + JWT, no OTP/Nafath yet)
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { strings, Language } from "../i18n/strings";
 import { isRTL } from "../i18n/rtl";
@@ -7,7 +7,13 @@ import { colors, radii, spacing, fonts, shadow } from "../theme";
 import SectionHeader from "../components/SectionHeader";
 import LeafletMapView, { GeoSite } from "../components/LeafletMapView";
 
-type Props = { language: Language };
+type Props = {
+  language: Language;
+  // Controlled from App.tsx so a voice command ("navigate to Mina") can
+  // select a site here too, not just a tap on the map.
+  selectedId: string | null;
+  onSelectSite: (id: string) => void;
+};
 
 // Real coordinates (approximate) for the three example sites. Centered/zoomed
 // to show the Haram-Mina-Arafat corridor; pinch or scroll out to see more of
@@ -17,11 +23,10 @@ const CENTER_LNG = 39.9;
 const ZOOM = 11;
 const MAP_HEIGHT = 340;
 
-export default function NavigationScreen({ language }: Props) {
+export default function NavigationScreen({ language, selectedId, onSelectSite }: Props) {
   const t = strings[language];
   const rtl = isRTL(language);
   const { contentMaxWidth } = useResponsive();
-  const [selectedId, setSelectedId] = useState<string | null>("haram");
 
   const sites: GeoSite[] = [
     { id: "haram", label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262 },
@@ -45,7 +50,7 @@ export default function NavigationScreen({ language }: Props) {
           centerLat={CENTER_LAT}
           centerLng={CENTER_LNG}
           zoom={ZOOM}
-          onSelectSite={setSelectedId}
+          onSelectSite={onSelectSite}
         />
         <View style={styles.infoBar}>
           <Text style={styles.infoText}>{selected ? selected.label : t.navigationHint}</Text>

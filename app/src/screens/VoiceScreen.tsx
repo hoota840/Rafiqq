@@ -1,21 +1,26 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Linking } from "react-native";
 import Voice, { SpeechResultsEvent, SpeechErrorEvent } from "@react-native-voice/voice";
 import * as Speech from "expo-speech";
 import { strings, Language } from "../i18n/strings";
 import { isRTL } from "../i18n/rtl";
 import { useResponsive } from "../hooks/useResponsive";
-import { sendVoiceText } from "../api/client";
+import { sendVoiceText, VoiceAction } from "../api/client";
 import { colors, fonts, spacing } from "../theme";
 import Card from "../components/Card";
 import { KaabaEmblem } from "../components/Illustration";
 
-type Props = { language: Language };
+type Props = {
+  language: Language;
+  // Lets a recognized voice command ("navigate to Mina") drive the map in
+  // NavigationScreen, whose selection state lives up in App.tsx.
+  onNavigateToSite: (siteId: string) => void;
+};
 
 const RECOGNITION_LOCALE: Record<Language, string> = { en: "en-US", ar: "ar-SA" };
 const SPEECH_LANGUAGE: Record<Language, string> = { en: "en-US", ar: "ar-SA" };
 
-export default function VoiceScreen({ language }: Props) {
+export default function VoiceScreen({ language, onNavigateToSite }: Props) {
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState("");
@@ -49,10 +54,19 @@ export default function VoiceScreen({ language }: Props) {
       if (data.reply) {
         Speech.speak(data.reply, { language: SPEECH_LANGUAGE[languageRef.current] });
       }
+      if (data.action) performAction(data.action);
     } catch {
       setReply("PLACEHOLDER: could not reach backend — is it running and are API keys configured?");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function performAction(action: VoiceAction) {
+    if (action.type === "call_emergency") {
+      Linking.openURL("tel:999");
+    } else if (action.type === "navigate_to_site") {
+      onNavigateToSite(action.siteId);
     }
   }
 

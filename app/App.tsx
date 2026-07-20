@@ -50,6 +50,9 @@ const TOP_BAR_CONTENT_HEIGHT = 56;
 function AppContent() {
   const [language, setLanguage] = useState<Language>("en");
   const [menuOpen, setMenuOpen] = useState(false);
+  // Lifted out of NavigationScreen so a voice command ("navigate to Mina")
+  // can select a site on the map from VoiceScreen too, not just a tap.
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>("haram");
   const insets = useSafeAreaInsets();
   const { contentMaxWidth } = useResponsive();
   const t = strings[language];
@@ -68,6 +71,11 @@ function AppContent() {
     setMenuOpen(false);
     const y = sectionOffsets.current[name] ?? 0;
     scrollRef.current?.scrollTo({ y: Math.max(y - spacing.md, 0), animated: true });
+  }
+
+  function navigateToSite(siteId: string) {
+    setSelectedSiteId(siteId);
+    scrollToSection("Navigation");
   }
 
   return (
@@ -94,10 +102,10 @@ function AppContent() {
 
       <ScrollView ref={scrollRef} style={styles.content} contentContainerStyle={styles.scrollContent}>
         <View onLayout={recordOffset("Voice")}>
-          <VoiceScreen language={language} />
+          <VoiceScreen language={language} onNavigateToSite={navigateToSite} />
         </View>
         <View onLayout={recordOffset("Navigation")}>
-          <NavigationScreen language={language} />
+          <NavigationScreen language={language} selectedId={selectedSiteId} onSelectSite={setSelectedSiteId} />
         </View>
         <View onLayout={recordOffset("Guide")}>
           <GuideScreen language={language} />
