@@ -3,17 +3,19 @@
 // install. Flattened, dependency-light stand-in for the real app (no react-navigation, no
 // react-native-maps, no expo-av mic recording) so it drops into Snack's default project with
 // no extra setup. Restyled to match the design reference in Aseels_screenshoots/ (cream
-// background, teal-green accent, serif headings, rounded cards, pill buttons, floating mic
-// button), one continuous scrollable page holding every module with a hamburger (☰) menu
-// of jump links instead of separate screens, small View-based illustrations (mosque/Kaaba/
-// mountain marks — no image assets or SVG library needed), a responsive max content width,
-// and full Arabic RTL mirroring. The real, full source of truth is app/App.tsx and app/src/.
+// background, teal-green accent, serif headings, rounded cards, pill buttons), one
+// continuous scrollable page holding Navigation/Guide/Health/Account with a hamburger (☰)
+// menu of jump links instead of separate screens, small View-based illustrations (mosque/
+// Kaaba/mountain marks — no image assets or SVG library needed), a responsive max content
+// width, and full Arabic RTL mirroring. The real, full source of truth is app/App.tsx and
+// app/src/.
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
   Text,
+  Image,
   Pressable,
   StyleSheet,
   FlatList,
@@ -59,8 +61,6 @@ const fontHeading = Platform.select({ ios: 'Georgia', android: 'serif', default:
 
 const strings = {
   en: {
-    voiceTitle: 'Talk to Rafiqq',
-    voicePrompt: "Snack's browser preview can't use the real microphone - tap a sample command below to try the same pipeline a real transcript would use.",
     navigationTitle: 'Navigation',
     navigationPlaceholder: 'Live map data from OpenStreetMap - indoor positioning inside Masjid al-Haram and official site boundaries have not been sourced yet.',
     navigationHint: 'Tap a pin to select a site',
@@ -81,6 +81,7 @@ const strings = {
     conditionsPlaceholder: 'e.g. asthma',
     mobilityLabel: 'Needs mobility assistance',
     saveProfile: 'Save health profile',
+    profileSavedNote: 'Health profile saved',
     emergencyTitle: 'Emergency Escalation',
     emergencyNote: 'The Call Emergency button places a real call to 999. Automatic fall detection and a formal dispatch integration are not wired up yet - the buttons below only demo the alert to confirm to escalate state machine.',
     triggerAlert: 'Trigger test alert',
@@ -103,11 +104,9 @@ const strings = {
     emergencyContactNameLabel: 'Contact name',
     emergencyContactPhoneLabel: 'Contact phone',
     saveChanges: 'Save changes',
-    tabs: { voice: 'Voice', navigation: 'Navigation', guide: 'Guide', health: 'Health', account: 'Account' },
+    tabs: { navigation: 'Navigation', guide: 'Guide', health: 'Health', account: 'Account' },
   },
   ar: {
-    voiceTitle: 'تحدث مع رفيق',
-    voicePrompt: 'لا يمكن لمعاينة المتصفح في Snack استخدام الميكروفون الحقيقي - اضغط على أحد الأوامر التجريبية أدناه لتجربة نفس المسار الذي سيستخدمه نص صوتي حقيقي.',
     navigationTitle: 'الملاحة',
     navigationPlaceholder: 'بيانات خريطة حية من OpenStreetMap - تحديد المواقع الداخلي داخل المسجد الحرام والحدود الرسمية للمواقع لم يتم الحصول عليها بعد.',
     navigationHint: 'اضغط على أي دبوس لاختيار الموقع',
@@ -128,6 +127,7 @@ const strings = {
     conditionsPlaceholder: 'مثال: الربو',
     mobilityLabel: 'يحتاج مساعدة في التنقل',
     saveProfile: 'حفظ الملف الصحي',
+    profileSavedNote: 'تم حفظ الملف الصحي',
     emergencyTitle: 'التصعيد الطارئ',
     emergencyNote: 'زر الاتصال بالطوارئ يجري اتصالاً حقيقياً بالرقم 999. الكشف التلقائي للسقوط والتكامل الرسمي مع جهات الطوارئ لم يتم ربطهما بعد - الأزرار أدناه تختبر فقط آلية التنبيه ثم التأكيد ثم التصعيد.',
     triggerAlert: 'تجربة تنبيه',
@@ -150,7 +150,7 @@ const strings = {
     emergencyContactNameLabel: 'اسم جهة الاتصال',
     emergencyContactPhoneLabel: 'هاتف جهة الاتصال',
     saveChanges: 'حفظ التغييرات',
-    tabs: { voice: 'صوت', navigation: 'ملاحة', guide: 'دليل', health: 'صحة', account: 'الحساب' },
+    tabs: { navigation: 'ملاحة', guide: 'دليل', health: 'صحة', account: 'الحساب' },
   },
 };
 
@@ -190,20 +190,8 @@ function MountainMark({ size = 40 }) {
   );
 }
 
-const SITES = [
-  { id: 'kaaba', label: { en: 'The Kaaba', ar: 'الكعبة' }, Mark: KaabaEmblem },
-  { id: 'haram', label: { en: 'Masjid al-Haram', ar: 'المسجد الحرام' }, Mark: MosqueMark },
-  { id: 'mina', label: { en: 'Mina', ar: 'منى' }, Mark: MosqueMark },
-  { id: 'arafat', label: { en: 'Arafat', ar: 'عرفات' }, Mark: MosqueMark },
-  { id: 'muzdalifah', label: { en: 'Muzdalifah', ar: 'مزدلفة' }, Mark: MosqueMark },
-  { id: 'jabal_al_nour', label: { en: 'Jabal al-Nour', ar: 'جبل النور' }, Mark: MountainMark },
-  { id: 'thawr', label: { en: 'Jabal Thawr', ar: 'جبل ثور' }, Mark: MountainMark },
-  { id: 'nabawi', label: { en: 'Masjid an-Nabawi', ar: 'المسجد النبوي' }, Mark: MosqueMark },
-  { id: 'quba', label: { en: 'Quba Mosque', ar: 'مسجد قباء' }, Mark: MosqueMark },
-];
-
 // Pilgrimage-specific icons for the nav menu, one per destination.
-const TAB_ICONS = { voice: '🎙️', navigation: '🧭', guide: '📖', health: '❤️', account: '👤' };
+const TAB_ICONS = { navigation: '🧭', guide: '📖', health: '❤️', account: '👤' };
 
 function isRTL(language) {
   return language === 'ar';
@@ -290,127 +278,123 @@ function StepSlider({ value, max, onChange }) {
   );
 }
 
-// Sits on the reading-order "end" side: right for English, mirrored to the left for Arabic.
-function FloatingMicButton({ onPress, rtl }) {
-  return (
-    <Pressable style={[floatStyles.button, rtl ? { left: 20 } : { right: 20 }]} onPress={onPress}>
-      <Text style={{ fontSize: 24 }}>🎙️</Text>
-    </Pressable>
-  );
+// Real map tiles rendered as plain <Image> elements positioned with Web
+// Mercator math, instead of an iframe running Leaflet.js from a CDN.
+// Confirmed live in Snack that the iframe approach's inline <script> silently
+// never ran — Snack's own preview page applies its CSP to srcDoc iframes, and
+// that CSP evidently doesn't allow the CDN script the map needed. An <Image>
+// only needs img-src, not script-src, so there's nothing for that CSP to
+// block — and since this is plain React Native (not a browser-only iframe
+// trick), it works on native Expo Go too, not just web.
+//
+// Tiles come from CARTO's free basemaps, not raw tile.openstreetmap.org —
+// confirmed live that tile.openstreetmap.org actively enforces OSM's tile
+// usage policy (wants a proper identifying User-Agent, which an <Image> tag
+// can't set) and served a "not following tile usage policy" warning image
+// instead of real tiles. CARTO's basemaps are built for exactly this kind of
+// embedding, still built from OpenStreetMap data, still free with no key.
+// See CLAUDE.md for the full story.
+const TILE_SIZE = 256;
+const TILE_SUBDOMAINS = ['a', 'b', 'c', 'd'];
+const CATEGORY_ICONS = { hospital: '🏥', police: '👮', tawafa: '🏢', guidance: 'ℹ️', other: '📍' };
+
+function tileUrl(zoom, tx, ty) {
+  var subdomain = TILE_SUBDOMAINS[(tx + ty) % TILE_SUBDOMAINS.length];
+  return 'https://' + subdomain + '.basemaps.cartocdn.com/light_all/' + zoom + '/' + tx + '/' + ty + '.png';
 }
 
-// Snack's browser preview can't use the real microphone (@react-native-voice/
-// voice is a native module, see CLAUDE.md) - these three buttons send canned
-// text through the exact same backend/app pipeline a real transcript would,
-// so the in-app command handling (navigate / call emergency) is still
-// testable here even without real speech input.
-const DEMO_PROMPTS = [
-  { key: 'ask', en: 'Tell me about the Kaaba', ar: 'أخبرني عن الكعبة' },
-  { key: 'navigate', en: 'Take me to Mina', ar: 'خذني إلى منى' },
-  { key: 'emergency', en: 'I need emergency help', ar: 'أحتاج مساعدة طارئة' },
-];
+function lonToTileX(lon, zoom) {
+  return ((lon + 180) / 360) * Math.pow(2, zoom);
+}
 
-function VoiceScreen({ t, language, onNavigateToSite }) {
-  const [busy, setBusy] = useState(false);
-  const [reply, setReply] = useState('');
-  const { contentMaxWidth } = useResponsive();
+function latToTileY(lat, zoom) {
+  var latRad = (lat * Math.PI) / 180;
+  return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * Math.pow(2, zoom);
+}
 
-  async function sendDemoText(text) {
-    setBusy(true);
-    setReply('');
-    try {
-      const res = await fetch(API_BASE + '/api/voice/text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, language }),
-      });
-      const data = await res.json();
-      setReply(data.reply || data.error || '');
-      if (data.action && data.action.type === 'call_emergency') {
-        Linking.openURL('tel:999');
-      } else if (data.action && data.action.type === 'navigate_to_site') {
-        onNavigateToSite(data.action.siteId);
+function TileMapView({ sites, selectedId, onSelectSite, centerLat, centerLng, zoom }) {
+  // Tile count depends on the container's actual pixel size, which we only
+  // know after first layout - nothing renders until then.
+  const [size, setSize] = useState(null);
+  const centerTileX = lonToTileX(centerLng, zoom);
+  const centerTileY = latToTileY(centerLat, zoom);
+  const worldTiles = Math.pow(2, zoom);
+
+  var tiles = [];
+  if (size) {
+    var colsHalf = Math.ceil(size.width / 2 / TILE_SIZE) + 1;
+    var rowsHalf = Math.ceil(size.height / 2 / TILE_SIZE) + 1;
+    var centerTxInt = Math.floor(centerTileX);
+    var centerTyInt = Math.floor(centerTileY);
+    for (var dx = -colsHalf; dx <= colsHalf; dx++) {
+      for (var dy = -rowsHalf; dy <= rowsHalf; dy++) {
+        var ty = centerTyInt + dy;
+        if (ty < 0 || ty >= worldTiles) continue;
+        var tx = centerTxInt + dx;
+        var wrappedTx = ((tx % worldTiles) + worldTiles) % worldTiles;
+        tiles.push({
+          key: tx + '_' + ty,
+          x: (tx - centerTileX) * TILE_SIZE + size.width / 2,
+          y: (ty - centerTileY) * TILE_SIZE + size.height / 2,
+          tx: wrappedTx,
+          ty: ty,
+        });
       }
-    } catch (e) {
-      setReply('PLACEHOLDER: could not reach backend.');
-    } finally {
-      setBusy(false);
     }
   }
 
+  function toScreen(lat, lng) {
+    return {
+      x: (lonToTileX(lng, zoom) - centerTileX) * TILE_SIZE + size.width / 2,
+      y: (latToTileY(lat, zoom) - centerTileY) * TILE_SIZE + size.height / 2,
+    };
+  }
+
   return (
-    <View style={{ paddingTop: 20 }}>
-      <Card style={{ alignItems: 'center', paddingVertical: 42, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%' }}>
-        <View style={{ marginBottom: 20 }}>
-          <KaabaEmblem size={48} />
+    <View
+      style={{ flex: 1, backgroundColor: '#EFE7D6' }}
+      onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+    >
+      {!size ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
         </View>
-        <Text style={{ fontSize: 24, fontFamily: fontHeading, fontWeight: '700', color: colors.textDark, marginBottom: 8 }}>
-          {t.voiceTitle}
-        </Text>
-        <Text style={{ fontSize: 14, color: colors.textMuted, marginBottom: 28, textAlign: 'center' }}>
-          {t.voicePrompt}
-        </Text>
-        {busy ? <ActivityIndicator color={colors.primary} style={{ marginBottom: 12 }} /> : null}
-        {DEMO_PROMPTS.map((p) => (
-          <PillButton
-            key={p.key}
-            label={p[language]}
-            onPress={() => sendDemoText(p[language])}
-            disabled={busy}
-            variant={p.key === 'emergency' ? undefined : 'outline'}
-            style={p.key === 'emergency' ? { backgroundColor: colors.danger, marginTop: 8 } : { marginTop: 8 }}
-          />
-        ))}
-        {reply ? <Text style={{ marginTop: 28, fontSize: 16, textAlign: 'center', color: colors.textDark }}>{reply}</Text> : null}
-      </Card>
+      ) : (
+        <>
+          {tiles.map((tile) => (
+            <Image
+              key={tile.key}
+              source={{ uri: tileUrl(zoom, tile.tx, tile.ty) }}
+              style={{ position: 'absolute', left: tile.x, top: tile.y, width: TILE_SIZE, height: TILE_SIZE }}
+            />
+          ))}
+          {sites.map((site) => {
+            var pos = toScreen(site.lat, site.lng);
+            var active = site.id === selectedId;
+            var icon = site.category ? CATEGORY_ICONS[site.category] || '📍' : '📍';
+            return (
+              <Pressable
+                key={site.id}
+                onPress={() => onSelectSite(site.id)}
+                style={{ position: 'absolute', left: pos.x, top: pos.y, alignItems: 'center', width: 90, marginLeft: -45, marginTop: -18 }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: active ? colors.primary : colors.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
+                  <Text style={{ fontSize: 16 }}>{icon}</Text>
+                </View>
+                <Text style={{ marginTop: 4, fontSize: 11, fontWeight: '700', color: active ? colors.primaryDark : colors.textDark, textAlign: 'center' }} numberOfLines={1}>
+                  {site.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </>
+      )}
     </View>
   );
 }
 
-// Builds a full, real, freely pannable/zoomable Leaflet map (Leaflet.js from
-// a CDN, real OpenStreetMap tiles) as a raw HTML document, rendered via
-// iframe srcDoc. This replaces the earlier approach of embedding OSM's
-// /export/embed.html, which only supports ONE marker and a fixed frame per
-// load — too limited once there are 7+ hub sites plus real nearby POIs to
-// show at once. srcDoc (not src) means the HTML is generated locally, no
-// network round-trip to build the page itself (only the Leaflet JS/CSS and
-// map tiles come from the network). Marker clicks postMessage to the parent
-// window, mirroring how the real app's LeafletMapView.tsx (WebView, native)
-// talks to React Native via window.ReactNativeWebView.postMessage.
-function buildMapHtml(sites, centerLat, centerLng, zoom) {
-  var sitesJson = JSON.stringify(sites);
-  return (
-    '<!DOCTYPE html><html><head>' +
-    '<meta name="viewport" content="width=device-width, initial-scale=1.0" />' +
-    '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />' +
-    '<style>html,body,#map{height:100%;margin:0;padding:0;}</style>' +
-    '</head><body><div id="map"></div>' +
-    '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>' +
-    '<script>' +
-    'var sites = ' + sitesJson + ';' +
-    'var map = L.map("map").setView([' + centerLat + ',' + centerLng + '], ' + zoom + ');' +
-    'L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap contributors", maxZoom: 19 }).addTo(map);' +
-    'var CATEGORY_ICONS = { hospital: "🏥", police: "👮", tawafa: "🏢", guidance: "ℹ️", other: "📍" };' +
-    'sites.forEach(function (site) {' +
-    '  var marker;' +
-    '  if (site.category && CATEGORY_ICONS[site.category]) {' +
-    '    var icon = L.divIcon({ html: "<div style=\\"font-size:20px;line-height:24px;text-align:center;\\">" + CATEGORY_ICONS[site.category] + "</div>", className: "", iconSize: [24,24], iconAnchor: [12,12] });' +
-    '    marker = L.marker([site.lat, site.lng], { icon: icon }).addTo(map);' +
-    '  } else {' +
-    '    marker = L.marker([site.lat, site.lng]).addTo(map);' +
-    '  }' +
-    '  marker.bindPopup(site.label);' +
-    '  marker.on("click", function () { window.parent.postMessage(JSON.stringify({ id: site.id }), "*"); });' +
-    '});' +
-    '</script></body></html>'
-  );
-}
-
-// selectedId/onSelectSite are lifted up to App() so a voice command
-// ("take me to Mina") can drive the map too, not just a tap.
 function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
   const { contentMaxWidth } = useResponsive();
-  const isWeb = Platform.OS === 'web';
   const [nearbySites, setNearbySites] = useState([]);
   // Bilingual summary shown when a site is selected - same guide content
   // GuideScreen shows, fetched fresh per selection. Fails soft to null for
@@ -464,105 +448,49 @@ function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
     Speech.speak(story[language], { language: language === 'ar' ? 'ar-SA' : 'en-US' });
   }
 
-  // Marker-click messages from the iframe (postMessage), only relevant on web.
-  useEffect(() => {
-    if (!isWeb) return;
-    function handleMessage(event) {
-      try {
-        var data = JSON.parse(event.data);
-        if (data && data.id) onSelectSite(data.id);
-      } catch (e) {}
-    }
-    window.addEventListener('message', handleMessage);
-    return function () { window.removeEventListener('message', handleMessage); };
-  }, [isWeb, onSelectSite]);
-
-  // Real coordinates (approximate — general-knowledge landmarks, not
-  // surveyed). The Makkah-corridor 3 also have a schematic xPct/yPct for the
-  // native (non-web) fallback pin layout; the farther sites and real nearby
-  // POIs only make sense on the real web map, not that schematic, so
-  // they're web-only.
-  const coreSites = [
-    { id: 'haram', label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262, xPct: 18, yPct: 65 },
-    { id: 'mina', label: t.navigationSiteMina, lat: 21.4133, lng: 39.8933, xPct: 48, yPct: 45 },
-    { id: 'arafat', label: t.navigationSiteArafat, lat: 21.3549, lng: 39.984, xPct: 80, yPct: 28 },
-  ];
-  const extraWebSites = [
+  // Real coordinates (approximate — general-knowledge landmarks, not surveyed).
+  const hubSites = [
+    { id: 'haram', label: t.navigationSiteHaram, lat: 21.4225, lng: 39.8262 },
+    { id: 'mina', label: t.navigationSiteMina, lat: 21.4133, lng: 39.8933 },
+    { id: 'arafat', label: t.navigationSiteArafat, lat: 21.3549, lng: 39.984 },
     { id: 'muzdalifah', label: t.navigationSiteMuzdalifah, lat: 21.3833, lng: 39.95 },
     { id: 'nabawi', label: t.navigationSiteNabawi, lat: 24.4672, lng: 39.6111 },
     { id: 'quba', label: t.navigationSiteQuba, lat: 24.4396, lng: 39.6169 },
     { id: 'thawr', label: t.navigationSiteThawr, lat: 21.3742, lng: 39.8395 },
   ];
-  const sites = isWeb ? coreSites.concat(extraWebSites).concat(nearbySites) : coreSites;
+  const sites = hubSites.concat(nearbySites);
   const selected = sites.find((s) => s.id === selectedId) || sites[0];
-  // Real, freely pannable/zoomable Leaflet map with EVERY pin (7 hub sites +
-  // real nearby POIs) always shown at once — not the earlier one-marker-at-a-
-  // time OSM embed. Still re-centers/zooms on whichever site is selected
-  // (tap or voice command); from there the map is fully explorable, exactly
-  // like the real native app's map, not a fixed frame.
-  const mapHtml = useMemo(
-    () => buildMapHtml(sites, selected.lat, selected.lng, 13),
-    [sites, selected.lat, selected.lng]
-  );
 
   return (
     <View>
       <View style={{ paddingHorizontal: 16, paddingTop: 20, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%' }}>
         <SectionHeader icon="🧭" title={t.navigationTitle} rtl={rtl} />
-        <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'flex-start', backgroundColor: '#FFF3CD', padding: 16, borderRadius: 22, marginBottom: 16 }}>
-          <Text style={{ fontSize: 18, marginHorizontal: 8 }}>⚠️</Text>
-          <Text style={{ flex: 1, color: '#856404', fontSize: 15, lineHeight: 21, textAlign: rtl ? 'right' : 'left' }}>{t.navigationPlaceholder}</Text>
-        </View>
       </View>
       <View style={{ height: 320, marginHorizontal: 16, marginBottom: 16, borderRadius: 22, overflow: 'hidden', maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%' }}>
-        {isWeb ? (
-          React.createElement('iframe', {
-            key: selected.id,
-            srcDoc: mapHtml,
-            title: 'Map',
-            style: { border: 0, width: '100%', height: '100%' },
-          })
-        ) : (
-          <View style={{ flex: 1, backgroundColor: '#EFE7D6' }}>
-            {sites.map((site) => {
-              const active = site.id === selectedId;
-              return (
-                <Pressable
-                  key={site.id}
-                  onPress={() => onSelectSite(site.id)}
-                  style={{ position: 'absolute', left: `${site.xPct}%`, top: `${site.yPct}%`, alignItems: 'center', width: 90, marginLeft: -45, marginTop: -18 }}
-                >
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: active ? colors.primary : colors.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
-                    <Text style={{ fontSize: 16 }}>📍</Text>
-                  </View>
-                  <Text style={{ marginTop: 4, fontSize: 11, fontWeight: '700', color: active ? colors.primaryDark : colors.textDark, textAlign: 'center' }} numberOfLines={1}>
-                    {site.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+        <TileMapView sites={sites} selectedId={selectedId} onSelectSite={onSelectSite} centerLat={selected.lat} centerLng={selected.lng} zoom={13} />
+        {/* Plain <Image> tiles have no built-in attribution control the way
+            Leaflet does - required by both OpenStreetMap's and CARTO's terms. */}
+        <View style={{ position: 'absolute', right: 6, bottom: 4, backgroundColor: 'rgba(255,255,255,0.75)', borderRadius: 4, paddingHorizontal: 4 }}>
+          <Text style={{ fontSize: 9, color: '#333' }}>© OpenStreetMap contributors © CARTO</Text>
+        </View>
         <View style={{ position: 'absolute', left: 16, right: 16, bottom: 16, backgroundColor: colors.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
           <Text style={{ fontSize: 15, fontWeight: '700', color: colors.textDark }}>{selected ? selected.label : t.navigationHint}</Text>
         </View>
       </View>
-      {isWeb ? (
-        // Hub sites only (not nearbySites) — those still show as pins on the
-        // map itself, but a button per hospital/police station would clutter
-        // this row; it's meant for quick jumps between the named waypoints.
-        <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', flexWrap: 'wrap', paddingHorizontal: 16, marginBottom: 16, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%', gap: 8 }}>
-          {coreSites.concat(extraWebSites).map((site) => (
-            <PillButton
-              key={site.id}
-              label={site.label}
-              onPress={() => onSelectSite(site.id)}
-              variant={site.id === selectedId ? 'primary' : 'outline'}
-              rtl={rtl}
-            />
-          ))}
-        </View>
-      ) : null}
+      {/* Hub sites only (not nearbySites) — those still show as pins on the
+          map itself, but a button per hospital/police station would clutter
+          this row; it's meant for quick jumps between the named waypoints. */}
+      <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', flexWrap: 'wrap', paddingHorizontal: 16, marginBottom: 16, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%', gap: 8 }}>
+        {hubSites.map((site) => (
+          <PillButton
+            key={site.id}
+            label={site.label}
+            onPress={() => onSelectSite(site.id)}
+            variant={site.id === selectedId ? 'primary' : 'outline'}
+            rtl={rtl}
+          />
+        ))}
+      </View>
       {selected && (storyLoading || story) ? (
         <View style={{ backgroundColor: colors.card, borderRadius: 22, padding: 16, marginHorizontal: 16, marginBottom: 16, maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}>
           {storyLoading ? (
@@ -597,38 +525,82 @@ function NavigationScreen({ t, rtl, language, selectedId, onSelectSite }) {
   );
 }
 
+const GUIDE_SITES = [
+  { id: 'haram', label: { en: 'Masjid al-Haram', ar: 'المسجد الحرام' } },
+  { id: 'mina', label: { en: 'Mina', ar: 'منى' } },
+  { id: 'arafat', label: { en: 'Arafat', ar: 'عرفات' } },
+];
+
 function GuideScreen({ t, language, rtl }) {
-  const [info, setInfo] = useState('');
+  const [openId, setOpenId] = useState(null);
+  const [story, setStory] = useState(null);
+  const [loading, setLoading] = useState(false);
   const { contentMaxWidth } = useResponsive();
 
   async function onSelect(id) {
+    setOpenId(id);
+    setStory(null);
+    setLoading(true);
     try {
       const res = await fetch(API_BASE + '/api/guide/site/' + id);
       const data = await res.json();
-      setInfo(data[language] || data.error || '');
+      setStory(data.error ? null : { en: data.en, ar: data.ar });
     } catch (e) {
-      setInfo('PLACEHOLDER: could not reach backend guide service.');
+      setStory(null);
+    } finally {
+      setLoading(false);
     }
   }
+
+  const openSite = GUIDE_SITES.find((s) => s.id === openId) || null;
 
   return (
     <View style={{ paddingTop: 20 }}>
       <Card style={{ maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%' }}>
         <SectionHeader icon="🔍" title={t.guideTitle} subtitle={t.guideSubtitle} rtl={rtl} />
         <FlatList
-          data={SITES}
+          data={GUIDE_SITES}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <Pressable style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border }} onPress={() => onSelect(item.id)}>
               <View style={{ marginHorizontal: 16 }}>
-                <item.Mark size={32} />
+                <MosqueMark size={32} />
               </View>
               <Text style={{ fontSize: 16, color: colors.textDark, textAlign: rtl ? 'right' : 'left' }}>{item.label[language]}</Text>
             </Pressable>
           )}
         />
-        {info ? <Text style={{ marginTop: 16, fontSize: 14, lineHeight: 20, color: colors.textDark, textAlign: rtl ? 'right' : 'left' }}>{info}</Text> : null}
       </Card>
+
+      <Modal visible={!!openId} transparent animationType="fade" onRequestClose={() => setOpenId(null)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(31, 45, 40, 0.35)', alignItems: 'center', justifyContent: 'center', padding: 20 }} onPress={() => setOpenId(null)}>
+          <Pressable
+            style={{ width: '100%', maxWidth: contentMaxWidth, backgroundColor: colors.card, borderRadius: 22, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'center', marginBottom: 8 }}>
+              <View style={rtl ? { marginLeft: 8 } : { marginRight: 8 }}>
+                <MosqueMark size={30} />
+              </View>
+              <Text style={{ fontSize: 18, fontWeight: '700', fontFamily: fontHeading, color: colors.textDark, flex: 1 }}>{openSite ? openSite.label[language] : ''}</Text>
+              <Pressable onPress={() => setOpenId(null)} hitSlop={8} style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textMuted }}>✕</Text>
+              </Pressable>
+            </View>
+            {loading ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
+            ) : story ? (
+              <>
+                <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textDark, textAlign: 'right', writingDirection: 'rtl' }}>{story.ar}</Text>
+                <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+                <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textDark }}>{story.en}</Text>
+              </>
+            ) : (
+              <Text style={{ fontSize: 14, lineHeight: 20, color: colors.textDark }}>PLACEHOLDER: could not reach backend guide service.</Text>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -639,9 +611,20 @@ function HealthScreen({ t, rtl }) {
   const [conditions, setConditions] = useState('');
   const [mobilityAssist, setMobilityAssist] = useState(false);
   const [status, setStatus] = useState('none');
+  const [profileSaved, setProfileSaved] = useState(false);
   const { contentMaxWidth } = useResponsive();
   const cardStyle = { maxWidth: contentMaxWidth, alignSelf: 'center', width: '100%' };
   const textAlign = rtl ? 'right' : 'left';
+
+  function saveProfile() {
+    setProfileSaved(true);
+  }
+  // Editing any field after saving means the on-screen confirmation would be
+  // lying about being up to date, so any change clears it.
+  function updateFatigue(v) { setFatigue(v); setProfileSaved(false); }
+  function updateAge(v) { setAge(v); setProfileSaved(false); }
+  function updateConditions(v) { setConditions(v); setProfileSaved(false); }
+  function updateMobilityAssist(v) { setMobilityAssist(v); setProfileSaved(false); }
 
   async function triggerAlert() {
     try {
@@ -676,7 +659,7 @@ function HealthScreen({ t, rtl }) {
       <Card style={cardStyle}>
         <SectionHeader icon="♡" title={t.healthProfileTitle} rtl={rtl} />
         <Text style={{ fontSize: 14, color: colors.textDark, marginBottom: 4, textAlign }}>{t.fatigueLabel}: {fatigue}/10</Text>
-        <StepSlider value={fatigue} max={10} onChange={setFatigue} />
+        <StepSlider value={fatigue} max={10} onChange={updateFatigue} />
 
         <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', marginTop: 16, gap: 12 }}>
           <View style={{ flex: 1 }}>
@@ -684,7 +667,7 @@ function HealthScreen({ t, rtl }) {
             <TextInput
               style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16, fontSize: 15, color: colors.textDark, textAlign }}
               value={age}
-              onChangeText={setAge}
+              onChangeText={updateAge}
               keyboardType="number-pad"
             />
           </View>
@@ -693,7 +676,7 @@ function HealthScreen({ t, rtl }) {
             <TextInput
               style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 16, fontSize: 15, color: colors.textDark, textAlign }}
               value={conditions}
-              onChangeText={setConditions}
+              onChangeText={updateConditions}
               placeholder={t.conditionsPlaceholder}
               placeholderTextColor={colors.textMuted}
             />
@@ -702,10 +685,13 @@ function HealthScreen({ t, rtl }) {
 
         <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.toggleTrackOn, borderRadius: 16, padding: 16, marginTop: 20 }}>
           <Text style={{ fontSize: 15, color: colors.textDark, flex: 1, marginHorizontal: 8, textAlign }}>{t.mobilityLabel}</Text>
-          <Switch value={mobilityAssist} onValueChange={setMobilityAssist} trackColor={{ true: colors.toggleTrackOn, false: colors.border }} thumbColor={colors.white} />
+          <Switch value={mobilityAssist} onValueChange={updateMobilityAssist} trackColor={{ true: colors.toggleTrackOn, false: colors.border }} thumbColor={colors.white} />
         </View>
 
-        <PillButton label={t.saveProfile} icon="✨" onPress={() => {}} style={{ marginTop: 20 }} rtl={rtl} />
+        <PillButton label={t.saveProfile} icon="✨" onPress={saveProfile} style={{ marginTop: 20 }} rtl={rtl} />
+        {profileSaved ? (
+          <Text style={{ marginTop: 8, fontSize: 13, fontWeight: '600', color: colors.primaryDark, textAlign: 'center' }}>✓ {t.profileSavedNote}</Text>
+        ) : null}
       </Card>
 
       <Card style={cardStyle}>
@@ -834,13 +820,11 @@ function AccountScreen({ t, rtl }) {
   );
 }
 
-const SECTION_ORDER = ['voice', 'navigation', 'guide', 'health', 'account'];
+const SECTION_ORDER = ['navigation', 'guide', 'health', 'account'];
 
 export default function App() {
   const [language, setLanguage] = useState('en');
   const [menuOpen, setMenuOpen] = useState(false);
-  // Lifted out of NavigationScreen so a voice demo command ("Take me to
-  // Mina") can select a site on the map too, not just a tap.
   const [selectedSiteId, setSelectedSiteId] = useState('haram');
   const t = strings[language];
   const rtl = isRTL(language);
@@ -858,11 +842,6 @@ export default function App() {
     setMenuOpen(false);
     const y = sectionOffsets.current[name] || 0;
     if (scrollRef.current) scrollRef.current.scrollTo({ y: Math.max(y - 16, 0), animated: true });
-  }
-
-  function navigateToSite(siteId) {
-    setSelectedSiteId(siteId);
-    scrollToSection('navigation');
   }
 
   return (
@@ -897,9 +876,6 @@ export default function App() {
       {/* One continuous scrollable page holding every module end to end; the
           hamburger menu below scrolls to a section instead of swapping screens. */}
       <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
-        <View onLayout={recordOffset('voice')}>
-          <VoiceScreen t={t} language={language} onNavigateToSite={navigateToSite} />
-        </View>
         <View onLayout={recordOffset('navigation')}>
           <NavigationScreen t={t} rtl={rtl} language={language} selectedId={selectedSiteId} onSelectSite={setSelectedSiteId} />
         </View>
@@ -913,8 +889,6 @@ export default function App() {
           <AccountScreen t={t} rtl={rtl} />
         </View>
       </ScrollView>
-
-      <FloatingMicButton onPress={() => scrollToSection('voice')} rtl={rtl} />
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(31, 45, 40, 0.35)' }} onPress={() => setMenuOpen(false)}>
@@ -969,24 +943,6 @@ const cardStyles = StyleSheet.create({
     padding: 20,
     marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-});
-
-const floatStyles = StyleSheet.create({
-  button: {
-    position: 'absolute',
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,

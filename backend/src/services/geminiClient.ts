@@ -15,14 +15,17 @@ const ai = config.geminiApiKey ? new GoogleGenAI({ apiKey: config.geminiApiKey }
 
 // gemini-3.5-flash alone hit a live 429 RESOURCE_EXHAUSTED after ~20
 // requests — its free tier is only 20 requests/DAY, shared across every user
-// of the deployed backend. gemini-2.5-flash-lite's free tier is far more
-// generous (1,000 requests/day per Google's docs) and is explicitly the
-// stable, budget-tier model, so it goes first; gemini-3.5-flash stays as a
-// fallback since it's a known-working model from earlier live testing.
+// of the deployed backend. gemini-2.5-flash-lite was tried as the fix but
+// ALSO 404'd live ("no longer available to new users") — Google appears to
+// have cut off the entire 2.x generation for new API keys, not just
+// gemini-2.5-flash. gemini-3.1-flash-lite is the 3.x-generation equivalent
+// (explicitly the cost-efficient tier, "a fraction of the cost" per Google's
+// own model docs) and isn't in the restricted 2.x generation, so it goes
+// first; gemini-3.5-flash stays as a fallback since it's a known-working
+// model from earlier live testing, just with a much tighter daily quota.
 // Ordered fallback, not just a single swap, because a model that works today
-// can vanish without warning — gemini-2.5-flash itself 404'd as "no longer
-// available to new users" earlier in this same project.
-const MODEL_CANDIDATES = ["gemini-2.5-flash-lite", "gemini-3.5-flash"];
+// can vanish without warning — this project has now hit that twice.
+const MODEL_CANDIDATES = ["gemini-3.1-flash-lite", "gemini-3.5-flash"];
 
 // Matches NavigationScreen.tsx's GeoSite ids/coordinates — kept in sync by
 // hand since there's no shared package between app/ and backend/.

@@ -113,10 +113,6 @@ export default function NavigationScreen({ language, selectedId, onSelectSite }:
     <View style={styles.container}>
       <View style={[styles.headerBlock, { maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" }]}>
         <SectionHeader icon="🧭" title={t.navigationTitle} rtl={rtl} />
-        <View style={[styles.banner, rtl && styles.rowReverse]}>
-          <Text style={[styles.bannerIcon, rtl ? styles.iconSpacingRTL : styles.iconSpacingLTR]}>⚠️</Text>
-          <Text style={[styles.bannerText, rtl && styles.textRTL]}>{t.navigationPlaceholder}</Text>
-        </View>
       </View>
       <View style={[styles.mapWrap, { maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" }]}>
         <LeafletMapView
@@ -168,19 +164,7 @@ const styles = StyleSheet.create({
   container: {},
   rowReverse: { flexDirection: "row-reverse" },
   textRTL: { textAlign: "right", writingDirection: "rtl" },
-  iconSpacingLTR: { marginRight: spacing.sm },
-  iconSpacingRTL: { marginLeft: spacing.sm },
   headerBlock: { paddingHorizontal: spacing.md, paddingTop: spacing.lg },
-  banner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: "#FFF3CD",
-    padding: spacing.md,
-    borderRadius: radii.card,
-    marginBottom: spacing.md,
-  },
-  bannerIcon: { fontSize: 18 },
-  bannerText: { flex: 1, color: "#856404", fontSize: 15, lineHeight: 21, fontFamily: fonts.body },
   mapWrap: { height: MAP_HEIGHT, marginHorizontal: spacing.md, borderRadius: radii.card, overflow: "hidden", marginBottom: spacing.md },
   infoBar: {
     position: "absolute",

@@ -24,13 +24,20 @@ type Props = {
 };
 
 /**
- * Real map tiles fetched live from OpenStreetMap via Leaflet.js, running inside
- * a WebView — free, no API key, no billing account (unlike Google Maps). Needs
- * an internet connection to load tiles (see the offline-first open question in
- * CLAUDE.md — this is fine for now, not yet a solution for Hajj-scale
- * connectivity). Only renders in a real native build (Expo Go on a device or a
- * simulator), not in Snack's browser-based web preview, since WebView is a
- * native module.
+ * Real map tiles via Leaflet.js, running inside a WebView — free, no API key,
+ * no billing account (unlike Google Maps). Needs an internet connection to
+ * load tiles (see the offline-first open question in CLAUDE.md — this is
+ * fine for now, not yet a solution for Hajj-scale connectivity). Only
+ * renders in a real native build (Expo Go on a device or a simulator), not
+ * in Snack's browser-based web preview, since WebView is a native module.
+ *
+ * Tiles come from CARTO's free basemaps, not raw tile.openstreetmap.org —
+ * that server actively enforces OSM's tile usage policy (requires a proper
+ * identifying User-Agent, which apps embedding tiles generally can't set)
+ * and started serving a "not following tile usage policy" warning image
+ * instead of real tiles once this app got real usage. CARTO's basemaps are
+ * built for exactly this kind of embedding, still built from OpenStreetMap
+ * data, still free with no key — hence the OSM+CARTO attribution below.
  */
 function buildHtml(sites: GeoSite[], centerLat: number, centerLng: number, zoom: number): string {
   const sitesJson = JSON.stringify(sites);
@@ -47,8 +54,9 @@ function buildHtml(sites: GeoSite[], centerLat: number, centerLng: number, zoom:
 <script>
   var sites = ${sitesJson};
   var map = L.map('map', { zoomControl: false }).setView([${centerLat}, ${centerLng}], ${zoom});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
     maxZoom: 19,
   }).addTo(map);
   var CATEGORY_ICONS = { hospital: '🏥', police: '👮', tawafa: '🏢', guidance: 'ℹ️', other: '📍' };

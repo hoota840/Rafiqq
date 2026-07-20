@@ -26,6 +26,7 @@ export const strings: Record<Language, Record<string, string>> = {
     conditionsPlaceholder: "e.g. asthma",
     mobilityLabel: "Needs mobility assistance",
     saveProfile: "Save health profile",
+    profileSavedNote: "Health profile saved",
     emergencyTitle: "Emergency Escalation",
     emergencyNote:
       "The Call Emergency button places a real call to 999. Automatic fall detection from your phone's motion sensors, and a formal Red Crescent/dispatch integration, aren't wired up yet — the buttons below only demo the alert → confirm → escalate state machine.",
@@ -54,7 +55,6 @@ export const strings: Record<Language, Record<string, string>> = {
     emergencyContactNameLabel: "Contact name",
     emergencyContactPhoneLabel: "Contact phone",
     saveChanges: "Save changes",
-    tabVoice: "Voice",
     tabNavigation: "Navigation",
     tabGuide: "Guide",
     tabHealth: "Health",
@@ -85,6 +85,7 @@ export const strings: Record<Language, Record<string, string>> = {
     conditionsPlaceholder: "مثال: الربو",
     mobilityLabel: "يحتاج مساعدة في التنقل",
     saveProfile: "حفظ الملف الصحي",
+    profileSavedNote: "تم حفظ الملف الصحي",
     emergencyTitle: "التصعيد الطارئ",
     emergencyNote:
       "زر الاتصال بالطوارئ يجري اتصالاً حقيقياً بالرقم 999. أما الكشف التلقائي للسقوط عبر حساسات الهاتف والتكامل الرسمي مع الهلال الأحمر/جهات الطوارئ فلم يتم ربطه بعد — الأزرار أدناه تختبر فقط آلية التنبيه ثم التأكيد ثم التصعيد.",
@@ -113,7 +114,6 @@ export const strings: Record<Language, Record<string, string>> = {
     emergencyContactNameLabel: "اسم جهة الاتصال",
     emergencyContactPhoneLabel: "هاتف جهة الاتصال",
     saveChanges: "حفظ التغييرات",
-    tabVoice: "صوت",
     tabNavigation: "ملاحة",
     tabGuide: "دليل",
     tabHealth: "صحة",

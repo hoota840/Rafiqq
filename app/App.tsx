@@ -1,33 +1,29 @@
 import React, { useRef, useState } from "react";
 import { View, Pressable, Text, StyleSheet, Modal, ScrollView, LayoutChangeEvent } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import VoiceScreen from "./src/screens/VoiceScreen";
 import NavigationScreen from "./src/screens/NavigationScreen";
 import GuideScreen from "./src/screens/GuideScreen";
 import HealthScreen from "./src/screens/HealthScreen";
 import AccountScreen from "./src/screens/AccountScreen";
 import { MosqueMark } from "./src/components/Illustration";
-import FloatingMicButton from "./src/components/FloatingMicButton";
 import { Language, strings } from "./src/i18n/strings";
 import { isRTL } from "./src/i18n/rtl";
 import { useResponsive } from "./src/hooks/useResponsive";
 import { colors, fonts, radii, spacing, shadow } from "./src/theme";
 
-type SectionName = "Voice" | "Navigation" | "Guide" | "Health" | "Account";
+type SectionName = "Navigation" | "Guide" | "Health" | "Account";
 
-const SECTIONS: SectionName[] = ["Voice", "Navigation", "Guide", "Health", "Account"];
+const SECTIONS: SectionName[] = ["Navigation", "Guide", "Health", "Account"];
 
 // Pilgrimage-specific icons (not generic icon-pack glyphs), one per destination.
 const SECTION_ICONS: Record<SectionName, string> = {
-  Voice: "🎙️",
   Navigation: "🧭",
   Guide: "📖",
   Health: "❤️",
   Account: "👤",
 };
 
-const SECTION_LABEL_KEY: Record<SectionName, "tabVoice" | "tabNavigation" | "tabGuide" | "tabHealth" | "tabAccount"> = {
-  Voice: "tabVoice",
+const SECTION_LABEL_KEY: Record<SectionName, "tabNavigation" | "tabGuide" | "tabHealth" | "tabAccount"> = {
   Navigation: "tabNavigation",
   Guide: "tabGuide",
   Health: "tabHealth",
@@ -40,8 +36,8 @@ const TOP_BAR_GAP = 14;
 const TOP_BAR_CONTENT_HEIGHT = 56;
 
 /**
- * One continuous scrollable page holding every module (Voice, Navigation,
- * Guide, Health, Account) end to end, instead of separate screens swapped in
+ * One continuous scrollable page holding every module (Navigation, Guide,
+ * Health, Account) end to end, instead of separate screens swapped in
  * and out. The hamburger (☰) menu is a set of jump links: picking an item
  * scrolls the page to that section rather than mounting a different
  * component. Each section records its own vertical offset via `onLayout`, and
@@ -50,8 +46,6 @@ const TOP_BAR_CONTENT_HEIGHT = 56;
 function AppContent() {
   const [language, setLanguage] = useState<Language>("en");
   const [menuOpen, setMenuOpen] = useState(false);
-  // Lifted out of NavigationScreen so a voice command ("navigate to Mina")
-  // can select a site on the map from VoiceScreen too, not just a tap.
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>("haram");
   const insets = useSafeAreaInsets();
   const { contentMaxWidth } = useResponsive();
@@ -71,11 +65,6 @@ function AppContent() {
     setMenuOpen(false);
     const y = sectionOffsets.current[name] ?? 0;
     scrollRef.current?.scrollTo({ y: Math.max(y - spacing.md, 0), animated: true });
-  }
-
-  function navigateToSite(siteId: string) {
-    setSelectedSiteId(siteId);
-    scrollToSection("Navigation");
   }
 
   return (
@@ -101,9 +90,6 @@ function AppContent() {
       </View>
 
       <ScrollView ref={scrollRef} style={styles.content} contentContainerStyle={styles.scrollContent}>
-        <View onLayout={recordOffset("Voice")}>
-          <VoiceScreen language={language} onNavigateToSite={navigateToSite} />
-        </View>
         <View onLayout={recordOffset("Navigation")}>
           <NavigationScreen language={language} selectedId={selectedSiteId} onSelectSite={setSelectedSiteId} />
         </View>
@@ -117,8 +103,6 @@ function AppContent() {
           <AccountScreen language={language} />
         </View>
       </ScrollView>
-
-      <FloatingMicButton onPress={() => scrollToSection("Voice")} rtl={rtl} />
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenuOpen(false)}>

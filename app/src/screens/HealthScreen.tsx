@@ -26,6 +26,30 @@ export default function HealthScreen({ language }: Props) {
   // Off by default — manual reports + phone sensors are the primary signal;
   // a wearable is an optional, clearly-secondary enhancement (see CLAUDE.md).
   const [hasWearable, setHasWearable] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  function saveProfile() {
+    setProfileSaved(true);
+  }
+
+  // Editing any field after saving means the on-screen confirmation would be
+  // lying about being up to date, so any change clears it.
+  function updateFatigue(v: number) {
+    setFatigue(v);
+    setProfileSaved(false);
+  }
+  function updateAge(v: string) {
+    setAge(v);
+    setProfileSaved(false);
+  }
+  function updateConditions(v: string) {
+    setConditions(v);
+    setProfileSaved(false);
+  }
+  function updateMobilityAssist(v: boolean) {
+    setMobilityAssist(v);
+    setProfileSaved(false);
+  }
 
   async function triggerTestAlert() {
     await fetch(`${API_BASE}/api/health/alert`, {
@@ -68,7 +92,7 @@ export default function HealthScreen({ language }: Props) {
         <Text style={[styles.label, rtl && styles.textRTL]}>
           {t.fatigueLabel}: {fatigue}/10
         </Text>
-        <StepSlider value={fatigue} max={10} onChange={setFatigue} />
+        <StepSlider value={fatigue} max={10} onChange={updateFatigue} />
 
         <View style={[styles.row, rtl && styles.rowReverse]}>
           <View style={styles.rowItem}>
@@ -76,7 +100,7 @@ export default function HealthScreen({ language }: Props) {
             <TextInput
               style={[styles.input, rtl && styles.textRTL]}
               value={age}
-              onChangeText={setAge}
+              onChangeText={updateAge}
               keyboardType="number-pad"
               placeholderTextColor={colors.textMuted}
             />
@@ -86,7 +110,7 @@ export default function HealthScreen({ language }: Props) {
             <TextInput
               style={[styles.input, rtl && styles.textRTL]}
               value={conditions}
-              onChangeText={setConditions}
+              onChangeText={updateConditions}
               placeholder={t.conditionsPlaceholder}
               placeholderTextColor={colors.textMuted}
             />
@@ -97,13 +121,16 @@ export default function HealthScreen({ language }: Props) {
           <Text style={[styles.toggleLabel, rtl && styles.textRTL]}>{t.mobilityLabel}</Text>
           <Switch
             value={mobilityAssist}
-            onValueChange={setMobilityAssist}
+            onValueChange={updateMobilityAssist}
             trackColor={{ true: colors.toggleTrackOn, false: colors.border }}
             thumbColor={colors.white}
           />
         </View>
 
-        <PillButton label={t.saveProfile} icon="✨" onPress={() => {}} style={styles.saveButton} rtl={rtl} />
+        <PillButton label={t.saveProfile} icon="✨" onPress={saveProfile} style={styles.saveButton} rtl={rtl} />
+        {profileSaved ? (
+          <Text style={[styles.savedNote, rtl && styles.textRTL]}>✓ {t.profileSavedNote}</Text>
+        ) : null}
       </Card>
 
       <Card style={contentStyle}>
@@ -164,6 +191,7 @@ const styles = StyleSheet.create({
   },
   toggleLabel: { fontSize: 15, color: colors.textDark, flex: 1, marginRight: spacing.sm },
   saveButton: { marginTop: spacing.lg },
+  savedNote: { marginTop: spacing.sm, fontSize: 13, fontWeight: "600", color: colors.primaryDark, textAlign: "center" },
   note: {
     fontSize: 13,
     color: "#856404",

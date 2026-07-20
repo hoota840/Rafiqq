@@ -39,7 +39,7 @@ Built with Claude Code. This is the first version / MVP.
 - **No Google Maps / react-native-maps:** dropped after scoping it out — Android requires a
   Google Cloud billing account to activate the Maps SDK (a card-verification charge even
   though usage itself is free), not worth it here. `NavigationScreen.tsx` now uses
-  `LeafletMapView.tsx`: real OpenStreetMap tiles fetched live over the internet, rendered via
+  `LeafletMapView.tsx`: real map tiles fetched live over the internet, rendered via
   Leaflet.js inside a `react-native-webview` WebView — free, no API key, no billing account.
   Three example pins (Masjid al-Haram, Mina, Arafat) use real coordinates. Tradeoffs: (1)
   needs an internet connection to load tiles, which cuts against the offline-first
@@ -48,28 +48,42 @@ Built with Claude Code. This is the first version / MVP.
   browser-based web preview, since WebView is a native module. `SchematicSiteMap.tsx` (the
   earlier zero-dependency, no-internet-needed version) is kept in the repo unused as a
   candidate for an offline fallback later, not deleted.
-- **Snack web preview map fix, then upgraded to a full real map.** First pass:
-  `snack-preview.js`'s `NavigationScreen` branched on `Platform.OS === 'web'` (true in
-  Snack's browser preview) and rendered OSM's `/export/embed.html` in an iframe — but that
-  endpoint only supports one marker and a fixed frame per load, too limited once there were
-  7 hub sites plus real nearby POIs to show together. **Superseded:** `buildMapHtml()` in
-  `snack-preview.js` now generates a full, real, freely pannable/zoomable Leaflet.js map
-  (same CDN'd Leaflet.js/CSS and OpenStreetMap tiles as the real app's `LeafletMapView.tsx`)
-  as a raw HTML string, rendered via `<iframe srcDoc={...}>` instead of `src={url}` — no
-  network round-trip to build the page itself, only the Leaflet assets and tiles come from
-  the network. Every site (7 hub sites + real Overpass-sourced nearby POIs, fetched
-  client-side from `GET /api/navigation/sites`, same endpoint the real app uses) renders as a
-  marker simultaneously, with category emoji icons matching `LeafletMapView.tsx`. Marker
-  clicks `postMessage` to the parent window (`window.parent.postMessage`, the web
-  equivalent of the real app's `window.ReactNativeWebView.postMessage`), caught by a
-  `window.addEventListener('message', ...)` in `NavigationScreen` that calls `onSelectSite`
-  — so tapping a pin in Snack now works the same way it does on a real device. The map still
-  re-centers/zooms on whichever site is selected (tap, the pill-button row, or a voice
-  command), but from there it's fully explorable, not a fixed frame. This gives Snack's web
-  preview genuine feature parity with the real native map, not just a lesser stand-in.
-  Native (`Platform.OS !== 'web'`, i.e. a phone opened via Snack's Expo Go QR code) still
-  falls back to the old percentage-pin schematic, since iframes don't render there — that
-  part is unchanged.
+- **Tile provider: CARTO's free basemaps, not raw `tile.openstreetmap.org` — confirmed live
+  this actually matters, not just a theoretical policy footnote.** Both `LeafletMapView.tsx`
+  and `snack-preview.js`'s `TileMapView` originally pointed straight at
+  `{s}.tile.openstreetmap.org`. A pilgrim reported the map showing a "not following tile
+  usage policy" warning image instead of real tiles — OpenStreetMap's own tile server
+  actively enforces its usage policy (https://operations.osmfoundation.org/policies/tiles/),
+  which wants a valid identifying `User-Agent` per app; neither a WebView's `<script>`-driven
+  Leaflet tile request nor a plain `<Image>` tag can set a custom `User-Agent` from
+  JavaScript, so there's no way to comply from either implementation as they were. Fixed by
+  switching both to `{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png` (CARTO's free
+  basemaps, still built from OpenStreetMap data, no key needed, explicitly meant for this
+  kind of embedding) with subdomain rotation (`abcd`) to spread load. Attribution updated to
+  credit both OSM and CARTO — Leaflet shows this automatically via its built-in attribution
+  control in the real app; `snack-preview.js`'s `TileMapView` (plain `<Image>` tiles have no
+  such control) now renders a small credit tag in the map's corner by hand.
+- **Snack map, three iterations — landed on plain `<Image>` tiles, no iframe.** First pass:
+  `NavigationScreen` embedded OSM's `/export/embed.html` in an iframe — only supports one
+  marker and a fixed frame per load, too limited once there were 7 hub sites plus real
+  nearby POIs. Second pass: `buildMapHtml()` generated a full Leaflet.js map (CDN'd
+  Leaflet.js/CSS + OSM tiles) as a raw HTML string rendered via `<iframe srcDoc={...}>`,
+  with marker clicks `postMessage`'d to the parent — worked in theory, but a pilgrim reported
+  the map area rendering blank in Snack's actual web preview, and testing confirmed it: the
+  iframe's inline `<script>` silently never ran. Root cause — browsers apply the *host
+  page's* CSP to `srcDoc` iframes, and Snack's own preview page's CSP doesn't allow the
+  unpkg.com CDN script the map needed. **Current, third approach:** `TileMapView` in
+  `snack-preview.js` renders real OpenStreetMap raster tiles as plain `<Image>` elements,
+  positioned with Web Mercator math (`lonToTileX`/`latToTileY`) instead of delegating to an
+  embedded HTML document at all. An `<Image>` only needs `img-src`, not `script-src`, so
+  there's nothing left for that CSP to block — and since it's plain React Native (no iframe
+  trick), it works identically on native Expo Go too, not just Snack's web preview, so the
+  earlier `Platform.OS === 'web'` branch and its native percentage-pin schematic fallback
+  were removed entirely — one code path now, not two. Markers are `Pressable` views calling
+  `onSelectSite` directly (no `postMessage` round-trip needed, since nothing is embedded in a
+  child document anymore). Every site (7 hub sites + real Overpass-sourced nearby POIs)
+  renders as a tap-to-select pin; the map re-centers on whichever site is selected (tap, the
+  pill-button row, or a voice command).
 - **Build order:** The voice conversation loop (STT → Claude → TTS, English/Arabic) is
   the shared foundation every other module sits on top of, so it's built first
   mechanically. Navigation, historical guide, and health are then built as parallel
@@ -147,15 +161,17 @@ Built with Claude Code. This is the first version / MVP.
 ├── render.yaml            # Render Blueprint — deploys backend/ (see Backend hosting)
 ├── .gitignore             # root-level; node_modules, .env, .claude/settings.local.json, etc.
 ├── app/                   # Expo React Native (TypeScript) mobile app — v1 scaffold exists
-│   ├── App.tsx            # one scrollable page: all 5 modules (Voice / Navigation / Guide /
-│   │                      # Health / Account) stacked, top bar with a ☰ jump-menu + EN/AR switcher
+│   ├── App.tsx            # one scrollable page: 4 modules (Navigation / Guide / Health /
+│   │                      # Account) stacked, top bar with a ☰ jump-menu + EN/AR switcher
 │   ├── snack-preview.js   # flattened single-file copy for pasting into snack.expo.dev
 │   └── src/
 │       ├── theme.ts       # design tokens (cream/teal palette, serif headings, spacing)
 │       ├── hooks/         # useResponsive (tablet breakpoint + content max-width)
 │       ├── components/    # Card, SectionHeader, PillButton, FloatingMicButton, StepSlider,
 │       │                  # SchematicSiteMap, Illustration (MosqueMark/KaabaEmblem/MountainMark)
-│       ├── screens/       # VoiceScreen, NavigationScreen, GuideScreen, HealthScreen, AccountScreen
+│       ├── screens/       # NavigationScreen, GuideScreen, HealthScreen, AccountScreen —
+│       │                  # VoiceScreen still exists but isn't imported by App.tsx (see
+│       │                  # "Voice tab removed from the app UI" below)
 │       ├── i18n/          # en/ar strings + rtl.ts (isRTL helper)
 │       └── api/           # backend API client
 ├── backend/               # Express + TypeScript backend — v1 scaffold exists
@@ -266,19 +282,29 @@ Built with Claude Code. This is the first version / MVP.
   thing dropped for maps, see the "No Google Maps" decision above) — no billing card
   required for this one, as of when this was wired up. Separate English/Arabic system
   prompts, same as the Claude version had.
-- **Model fallback list, not a single model — learned this the hard way twice.**
+- **Model fallback list, not a single model — learned this the hard way three times.**
   `gemini-2.5-flash` 404'd as "no longer available to new API keys" (caught before it ever
   shipped). `gemini-3.5-flash` (the replacement) turned out to have only a **20
   requests/day** free-tier quota, shared across the whole deployed backend — hit a live 429
-  RESOURCE_EXHAUSTED during actual testing, not a hypothetical. `MODEL_CANDIDATES` in
-  `geminiClient.ts` is now an ordered list — `gemini-2.5-flash-lite` first (free tier: 1,000
-  requests/day per Google's docs, explicitly their stable budget-tier model), `gemini-3.5-flash`
-  second as a fallback. `getAgentReply`'s retry loop: a 503 (transient overload) gets a
-  couple of short retries on the *same* model; a 429 (quota) or 404 (model gone) moves
-  straight to the *next* model in the list instead, since retrying the same model won't fix
-  either of those. If this breaks again, verify current model IDs and free-tier limits
-  against https://ai.google.dev/gemini-api/docs/models — Google's model
-  availability/quotas have shifted at least twice already during this project.
+  RESOURCE_EXHAUSTED during actual testing. Tried `gemini-2.5-flash-lite` as the fix; it
+  ALSO 404'd live with the same "no longer available to new users" message — Google appears
+  to have cut off the *entire* 2.x generation for new API keys, not just the one model. Root
+  cause was only found by pulling this backend's own Render logs via the Render API (the
+  fallback loop was silently swallowing the 2.5-flash-lite 404 and surfacing the *next*
+  model's error instead, which masked what was actually failing). `MODEL_CANDIDATES` in
+  `geminiClient.ts` is now `["gemini-3.1-flash-lite", "gemini-3.5-flash"]` —
+  `gemini-3.1-flash-lite` is the 3.x-generation cost-efficient tier ("a fraction of the
+  cost" per Google's own docs) and isn't in the restricted 2.x generation.
+  `getAgentReply`'s retry loop: a 503 (transient overload) gets a couple of short retries on
+  the *same* model; a 429 (quota) or 404 (model gone) moves straight to the *next* model in
+  the list instead, since retrying the same model won't fix either of those. If this breaks
+  again: (1) check this backend's Render logs first (`GET /v1/logs?ownerId=...&resource=...`
+  via the Render API) for the actual per-model error, don't just trust the error the client
+  sees, since that's whatever the *last* candidate in the list failed with, not necessarily
+  the interesting one; (2) verify current model IDs and free-tier limits against
+  https://ai.google.dev/gemini-api/docs/models — Google's model availability/quotas have
+  shifted repeatedly during this project, seemingly tied to whether the API key counts as
+  "new."
 - **Flow:** app listens via `Voice.start(locale)` → on-device transcript →
   `POST /api/voice/text { text, language }` → Gemini reply (text only, no backend audio
   handling anymore) → `Speech.speak(reply, { language })` plays it back on-device.
@@ -373,6 +399,47 @@ Built with Claude Code. This is the first version / MVP.
   emergency help") that exercise the same `navigate_to_site`/`call_emergency` paths — so
   this feature is actually fully testable in Snack, unlike real speech input.
 
+## Voice tab removed from the app UI (decided — kept in code, not deleted)
+
+- **What changed:** the Voice section (hero card, mic button, demo prompts) no longer appears
+  on the page, and the app-level floating mic button is gone with it. `App.tsx`'s `SECTIONS`/
+  `SECTION_ICONS`/`SECTION_LABEL_KEY` dropped `"Voice"`; the ☰ menu now lists Navigation,
+  Guide, Health, Account only. `app/src/screens/VoiceScreen.tsx` (on-device STT/TTS,
+  `@react-native-voice/voice` + `expo-speech`) is **not deleted** — it's just no longer
+  imported or mounted, following the same "keep unused-but-potentially-useful code" pattern
+  already used for `SchematicSiteMap.tsx`. `snack-preview.js`'s `VoiceScreen` function,
+  `DEMO_PROMPTS`, and `FloatingMicButton` were removed outright there instead (that file has
+  no equivalent "kept for later" convention — it's meant to be a lean, current snapshot).
+- **Consequence — voice-driven navigation is currently unreachable, not deleted.** The
+  `navigate_to_site`/`call_emergency` Gemini function-calling described above still exists in
+  `backend/src/services/geminiClient.ts` and `backend/src/routes/voice.ts`, untouched — but
+  with no Voice screen calling `sendVoiceText`, nothing in the app triggers it anymore.
+  `NavigationScreen`'s `selectedId`/`onSelectSite` are still lifted up to `App.tsx` (tapping a
+  pin or the hub-site pill row still works), just no longer wired to a voice command path.
+  Re-enabling voice later just means importing `VoiceScreen` back into `App.tsx`'s section
+  list — the screen component itself, the backend route, and the string keys are all still
+  intact.
+- **Guide screen: cut from 9 sites to 3 (Haram, Mina, Arafat), tap now opens a popup instead
+  of showing text inline below the list.** `GuideScreen.tsx`'s `SITES` list is now just the
+  three original hub sites; selecting one opens a `Modal` (core React Native, no new
+  dependency) with the bilingual story fetched from the same `GET /api/guide/site/:id` as
+  before, a close button, and tap-outside-to-dismiss — matching the same modal pattern
+  already used for the ☰ nav menu. `NavigationScreen`'s inline story card (all 7 hub sites +
+  the 🔊 Listen button) is unaffected; this only changed the separate Guide screen's list.
+- **Health screen: "Save health profile" now does something.** It was a literal no-op
+  (`onPress={() => {}}`) before. `HealthScreen.tsx` now tracks a `profileSaved` flag, shows a
+  "✓ Health profile saved" confirmation under the button after tapping it, and clears that
+  confirmation the moment any field (fatigue, age, conditions, mobility toggle) changes again
+  — so the confirmation can't lie about being stale. This is local-only, like the rest of the
+  Health Profile card; there's no backend endpoint for persisting a health profile yet (only
+  the alert → confirm → escalate flow hits the backend). A real save would need a new
+  `PATCH`-style endpoint, which wasn't asked for here — flagging as the natural next step if
+  persistence is wanted later.
+- **Navigation: removed the yellow "live map data" disclaimer banner** that sat above the map
+  on both `NavigationScreen.tsx` and `snack-preview.js`. Its content (`navigationPlaceholder`
+  string) is left in `strings.ts` unused rather than deleted, in case a lighter-weight
+  version of that disclosure is wanted elsewhere later.
+
 ## Auth (decided — real backend email/password + JWT, no OTP/Nafath yet)
 
 - **Chosen over phone OTP/Nafath for v1** because it's buildable and testable before the
@@ -421,6 +488,19 @@ Built with Claude Code. This is the first version / MVP.
   (`npm error notarget @google/genai@^0.21.0` — a guessed version that was never published;
   fixed by checking the real latest version, `2.12.0`, against the npm registry). If this
   service is ever redeployed under a different URL, both of those need updating again.
+- **Manual-redeploy friction, resolved with a Render API key.** Render's dashboard showed
+  `autoDeploy: "yes"` the whole time, but every deploy in this service's history was
+  `trigger: "manual"` — auto-deploy never actually fired on a push despite the setting,
+  which repeatedly caused confusing "the fix isn't working" reports that turned out to be
+  "the fix was never deployed." Confirmed directly via the Render API (`GET
+  /v1/services/{id}/deploys`) before concluding this, not assumed. The project owner
+  provided a Render API key (session-scoped, not committed anywhere — never write it to a
+  file in this repo) so deploys can now be triggered directly (`POST
+  /v1/services/{id}/deploys`) and polled for completion (`GET
+  /v1/services/{id}/deploys/{deployId}`) without round-tripping through the dashboard. Also
+  useful for debugging: `GET /v1/logs?ownerId=...&resource=...` pulls this service's actual
+  runtime logs, which is how the `gemini-2.5-flash-lite` 404 above was actually root-caused
+  instead of guessed at.
 
 ## Development environment (important — no local Node install on this machine)
 
@@ -449,10 +529,10 @@ partner built, e.g. via Lovable): warm cream background (`#FAF3E7`), deep teal-g
 (`#3C7F63`), serif headings paired with a small outline icon per section (see
 `src/components/SectionHeader.tsx`), rounded white cards (`src/components/Card.tsx`),
 fully-rounded pill buttons in primary/secondary/outline variants
-(`src/components/PillButton.tsx`), and a persistent floating mic button
-(`src/components/FloatingMicButton.tsx`) rendered once at the app level so voice is always
-one tap away no matter how far down the page you've scrolled; tapping it scrolls back up to
-the Voice section. The Health screen was also
+(`src/components/PillButton.tsx`). `src/components/FloatingMicButton.tsx` still exists and is
+used as-needed (e.g. it was the app-level "always one tap from Voice" button before the Voice
+section was removed — see "Voice tab removed from the app UI" below) but nothing renders it
+at the top level anymore. The Health screen was also
 extended with a fatigue slider, age/conditions inputs, and a mobility-assistance toggle
 (matching the reference's "Health Profile" card), on top of the existing alert → confirm →
 escalate test buttons. All tokens live in `src/theme.ts` — change them there to retheme
@@ -461,7 +541,7 @@ everything at once. No new native dependencies were added (custom `StepSlider` i
 on this machine yet.
 
 **Elderly-readability pass:** target users skew elderly, so navigation favors legibility over
-cleverness: pilgrimage-specific icons per destination (🎙️ Voice, 🧭 Navigation, 📖 Guide,
+cleverness: pilgrimage-specific icons per destination (🧭 Navigation, 📖 Guide,
 ❤️ Health, 👤 Account, up from default icon-pack glyphs), a tinted pill behind the active
 item, and big always-visible labels (17px in the menu — see below). `NavigationScreen.tsx`
 got a bigger high-contrast placeholder-data banner, a schematic pin map (see
@@ -473,16 +553,18 @@ not separate screens.** Went through three earlier shapes before landing here: a
 bar, an always-visible top tab row, then a hamburger menu that still *swapped* one full
 screen for another — all three still meant only one module was visible/reachable at a time,
 which didn't match "one page layout containing all the functionalities." `App.tsx` now
-renders every module (Voice, Navigation, Guide, Health, Account) stacked in a single shared
+renders every module (Navigation, Guide, Health, Account — Voice was later removed from
+this list, see "Voice tab removed from the app UI" below) stacked in a single shared
 `ScrollView`, each as its own `Card`-based section, in that order top to bottom. The minimal
 top bar (brand mark + app name + ☰) stays fixed; tapping ☰ opens a `Modal`-based dropdown
-(core React Native, no new dependency) listing all five destinations plus the EN/AR switcher.
+(core React Native, no new dependency) listing all destinations plus the EN/AR switcher.
 Picking one doesn't mount a different component — each section records its own vertical
 offset via `onLayout`, and the menu item calls `scrollTo({ y })` on the shared `ScrollView`
 ref to jump there, then closes itself. Because every module is always mounted, each screen
 component lost its own full-screen wrapper (`flex: 1`, its own background, its own
 `FloatingMicButton`) in favor of being a plain stacked section — the page's `SafeAreaView`
-owns the background and there's exactly one app-level floating mic button now, not five.
+owns the background. (The app-level floating mic button was later removed entirely along
+with the Voice section — see "Voice tab removed from the app UI" below.)
 `NavigationScreen.tsx`'s map switched from `flex: 1` to a fixed height for the same reason
 (a `flex: 1` child can't size itself inside `ScrollView` content). This also removes the
 earlier `@react-navigation/bottom-tabs`-driven top bar, which fought the library's own
@@ -547,26 +629,32 @@ sessions — paste `snack-preview.js` in manually instead and report results bac
 
 ## Status
 
-**A first-version scaffold now exists** for all three modules plus the voice loop:
+**A first-version scaffold now exists** for all three modules; Voice is built but not
+currently mounted in the app UI (see "Voice tab removed from the app UI" above):
 
-- Voice loop (`app/src/screens/VoiceScreen.tsx` + `backend/src/routes/voice.ts`): fully
-  wired end-to-end (on-device STT → Claude → on-device TTS → playback, see Voice stack
-  above), just needs `GEMINI_API_KEY` and, for the mic specifically, a custom dev build
-  instead of plain Expo Go (see the Expo Go tradeoff note above).
+- Voice (`app/src/screens/VoiceScreen.tsx` + `backend/src/routes/voice.ts`): fully wired
+  end-to-end (on-device STT → Gemini → on-device TTS → playback, see Voice stack above), but
+  not imported/rendered by `App.tsx` right now. Needs `GEMINI_API_KEY` and, for the mic
+  specifically, a custom dev build instead of plain Expo Go (see the Expo Go tradeoff note
+  above) to actually try it.
 - Navigation (`app/src/screens/NavigationScreen.tsx` + `backend/src/routes/navigation.ts`):
-  live OpenStreetMap tiles via `LeafletMapView.tsx` (WebView + Leaflet.js, free, no API key —
-  see Key decisions above) with three real-coordinate example pins (Masjid al-Haram, Mina,
-  Arafat), plus a stub route-steps response. Needs real holy-site POI/indoor-positioning data
-  (see `data/maps/`) and an offline-tile strategy before this is Hajj-ready — live internet
-  tiles won't hold up under the connectivity conditions described below.
+  live map tiles via `LeafletMapView.tsx` (WebView + Leaflet.js, CARTO tiles, free, no API
+  key — see Key decisions above) with 7 real-coordinate hub-site pins plus real nearby POIs,
+  a bilingual story card on selection, and a stub route-steps response. Needs real holy-site
+  POI/indoor-positioning data (see `data/maps/`) and an offline-tile strategy before this is
+  Hajj-ready — live internet tiles won't hold up under the connectivity conditions described
+  below.
 - Guide (`app/src/screens/GuideScreen.tsx` + `backend/src/routes/guide.ts`): explicit
-  placeholder — two example sites (Kaaba, Jabal al-Nour) with clearly-marked non-vetted
-  placeholder text. Needs the real vetted content corpus (see `data/content/`).
+  placeholder — 3 example sites (Masjid al-Haram, Mina, Arafat; cut down from 9), tapping one
+  opens a popup with clearly-marked non-vetted placeholder text. Needs the real vetted
+  content corpus (see `data/content/`).
 - Health (`app/src/screens/HealthScreen.tsx` + `backend/src/routes/health.ts`): implements
-  the alert → confirm → auto-escalate state machine in-memory. Manual reporting (the Health
-  Profile card) and phone motion sensors are the primary path; a wearable is an optional,
-  clearly-secondary toggle. No real phone-sensor fall detection, wearable vitals feed, or
-  emergency-dispatch integration are wired up yet — those are the next real blockers.
+  the alert → confirm → auto-escalate state machine in-memory, plus a "Save health profile"
+  button that confirms the save locally (no backend persistence for the profile fields yet —
+  see "Voice tab removed from the app UI" above). Manual reporting (the Health Profile card)
+  and phone motion sensors are the primary path; a wearable is an optional, clearly-secondary
+  toggle. No real phone-sensor fall detection, wearable vitals feed, or emergency-dispatch
+  integration are wired up yet — those are the next real blockers.
 - Account (`app/src/screens/AccountScreen.tsx`): real backend auth — signup/login/logout,
   editable profile and Emergency Contact card, all persisted via `backend/src/routes/auth.ts`
   + `userStore.ts` (see "Auth (decided)" above). No longer a local-only fake form.
