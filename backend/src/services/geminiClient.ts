@@ -1,4 +1,11 @@
-import { FunctionCallingConfigMode, FunctionDeclaration, GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
+import {
+  FunctionCallingConfigMode,
+  FunctionDeclaration,
+  GenerateContentResponse,
+  GoogleGenAI,
+  ThinkingLevel,
+  Type,
+} from "@google/genai";
 import { config } from "../config";
 
 // Google AI Studio's Gemini API free tier — not Google Cloud/Maps Platform
@@ -75,27 +82,50 @@ const CONFIRMATION_PHRASES = {
   },
 };
 
+// Free-tier Gemini occasionally returns 503 "high demand"/UNAVAILABLE or 429
+// rate-limit errors — transient, observed live during testing. A couple of
+// short retries smooths this over instead of surfacing it to the pilgrim.
+const RETRYABLE_STATUS = new Set([429, 503]);
+const RETRY_DELAYS_MS = [500, 1500];
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function getAgentReply(userText: string, language: "en" | "ar"): Promise<AgentReply> {
   if (!ai) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
 
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: userText,
-    config: {
-      systemInstruction: SYSTEM_PROMPTS[language],
-      maxOutputTokens: 1024,
-      // gemini-3.5-flash "thinks" before answering by default, which was
-      // eating the whole token budget and truncating replies mid-sentence.
-      // MINIMAL keeps this a snappy voice assistant, not a reasoning model.
-      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
-      tools: [{ functionDeclarations: [CALL_EMERGENCY_TOOL, NAVIGATE_TO_SITE_TOOL] }],
-      // AUTO (the default) lets the model choose between calling a function
-      // or answering in plain text — most requests are just questions.
-      toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
-    },
-  });
+  let response: GenerateContentResponse;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      response = await ai.models.generateContent({
+        model: MODEL,
+        contents: userText,
+        config: {
+          systemInstruction: SYSTEM_PROMPTS[language],
+          maxOutputTokens: 1024,
+          // gemini-3.5-flash "thinks" before answering by default, which was
+          // eating the whole token budget and truncating replies mid-sentence.
+          // MINIMAL keeps this a snappy voice assistant, not a reasoning model.
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+          tools: [{ functionDeclarations: [CALL_EMERGENCY_TOOL, NAVIGATE_TO_SITE_TOOL] }],
+          // AUTO (the default) lets the model choose between calling a function
+          // or answering in plain text — most requests are just questions.
+          toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
+        },
+      });
+      break;
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status && RETRYABLE_STATUS.has(status) && attempt < RETRY_DELAYS_MS.length) {
+        await sleep(RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+      throw err;
+    }
+  }
 
   const call = response.functionCalls?.[0];
   if (call?.name === "call_emergency") {
